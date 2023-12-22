@@ -30,7 +30,7 @@
 // - To circle around making a grown up OSX application: https://github.com/SCG82/macdylibbundler
 
 // third party: ImGui
-// - Tab to show/hide
+// - F10 to show/hide
 // - Currently only enabled in windowed mode
 // - ImGuiIsVisible() will tell you if you should be drawing ImGui widgets
 // - Currently included in main.h, so should be available everywhere you might need it. I think.
@@ -106,7 +106,7 @@ static const char *kStream = "assets/audio/comatron - to the moon - final.wav";
 constexpr bool kSilent = true; // when you're working on anything else than synchronization
 
 // enable this to receive derogatory comments
-// #define DISPLAY_AVG_FPS
+ #define DISPLAY_AVG_FPS
 
 /*
 	look for SYNC_PLAYER in the header to switch between editor and replay (release) mode
@@ -140,6 +140,7 @@ static const std::string GetMacWorkDir()
 // -----------------------------
 
 static bool s_showImGui = false;
+static bool s_ImGuiFramerateWarning = false; // Should ImGui show framerate in red if below 60 fps?
 
 bool ImGuiIsVisible()
 {
@@ -292,9 +293,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR cmdLine, int nCmdShow)
 						newTime = timer.Get();
 						const float delta = newTime-oldTime; // base delta on sys. time
 						
-						if (ImGui::IsKeyReleased(ImGui::GetKeyIndex(ImGuiKey_Tab)) && !kFullScreen)
+						if (ImGui::IsKeyReleased(ImGui::GetKeyIndex(ImGuiKey_F10)) && !kFullScreen)
 							s_showImGui = !s_showImGui;
 
+						const float audioTime = kSilent ? newTime : Audio_Get_Pos_In_Sec();
+						
 						if (!kFullScreen)
 						{
 							ImGui_ImplSDLRenderer2_NewFrame();
@@ -303,12 +306,61 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR cmdLine, int nCmdShow)
 							ImGui::NewFrame();
 							
 							if (ImGuiIsVisible())
-								ImGui::Begin("I'm Imgui!");
+							{
+								ImGui::Begin("Press F10 to hide");
+
+								if (ImGui::CollapsingHeader("Info", ImGuiTreeNodeFlags_DefaultOpen))
+								{
+									// TODO: Lowpass filter values to make them less jittery. Or update less frequently.
+									if (ImGui::BeginTable("InfoTable", 2))
+									{
+										ImGui::TableNextRow();
+										ImGui::TableNextColumn();
+										ImGui::Text("Time");
+										ImGui::TableNextColumn();
+										ImGui::Text("%.3f s", audioTime);
+
+										ImGui::TableNextRow();
+										ImGui::TableNextColumn();
+										ImGui::Text("Frame rate");
+										ImGui::TableNextColumn();
+
+										const float fps = 1.0f / delta;
+										
+										if (s_ImGuiFramerateWarning && fps < 60.0f) // Derogatory comments now in color.
+										{
+											ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "%.1f fps", fps);
+											ImGui::TableNextRow();
+											ImGui::TableNextColumn();
+											ImGui::Text("Frame time");
+											ImGui::TableNextColumn();
+											ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "%.3f ms", 1000.0f * delta);
+										}
+										else
+										{
+											ImGui::Text("%.1f fps", fps);
+											ImGui::TableNextRow();
+											ImGui::TableNextColumn();
+											ImGui::Text("Frame time");
+											ImGui::TableNextColumn();
+											ImGui::Text("%.3f ms", 1000.0f * delta);
+										}
+
+										ImGui::EndTable();
+
+										ImGui::Checkbox("Low FPS warning", &s_ImGuiFramerateWarning);
+									}
+
+									//ImGui::Text("Time:        %.3f s", audioTime);
+									//ImGui::Text("FPS:         %.1f", 1.0f / delta);
+									//ImGui::Text("Frame time:  %.3f ms", 1000.0f * delta);
+								}
+							}
 						}
 
-						const float audioTime = Audio_Get_Pos_In_Sec();
-						if (false == Demo_Draw(pDest, audioTime, delta * 100.f))
-							break; // Rocket track says we're done
+						Demo_Draw(pDest, audioTime, delta * 100.f);
+						//if (false == Demo_Draw(pDest, audioTime, delta * 100.f))
+						//	break; // Rocket track says we're done
 
 						if (!kFullScreen)
 						{
