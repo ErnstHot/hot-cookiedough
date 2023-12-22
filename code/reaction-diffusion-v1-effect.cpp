@@ -150,8 +150,8 @@ void Reaction_Diffusion_V1_Effect_Draw(uint32_t* pDest, float time, float delta)
 				vf = gain * VarShape(vf, shape);
 
 				//float vf = lutsinf(kPI +  4.0f * s_pBuffers->pBufferA[XYToIdx(srcXidx, srcYidx, sourceResX)]) * 0.5f + 0.5f;
-				//color = FloatToColorGreyscale32(vf);
-				color = FloatToColorSpectrum32(3+vf * 6, 0.6f);
+				color = FloatToColorGreyscale32(vf);
+				//color = FloatToColorSpectrum32(3+vf * 6, 0.6f);
 			}
 
 			if (kHalfRes)
@@ -208,12 +208,12 @@ bool Reaction_Diffusion_V1_Effect_Create()
 	s_pParameters->diffB = 0.3366999;
 	s_pParameters->feed = 0.0131419;
 	s_pParameters->kill = 0.0439979;
+	s_pParameters->fillChance = 0.001;
 
 	// Buffers
 	if (!REDI_V1_Buffers_Create(s_pBuffers))
 		return false;
 
-	s_pParameters->fillChance = 0;
 	REDI_V1_Buffers_Reset(s_pBuffers, s_pParameters->fillChance);
 
 	// Tracks
