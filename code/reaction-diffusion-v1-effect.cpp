@@ -17,11 +17,11 @@
 
 using namespace ErnstHot;
 
-constexpr bool kHalfRes = false;
+constexpr bool kHalfRes = true;
 
-static REDI_V1_Kernel* s_pKernel			= nullptr;
-static REDI_V1_Parameters* s_pParameters	= nullptr;
-static REDI_V1_Buffers* s_pBuffers			= nullptr;
+static REDI_V1_Kernel*		s_pKernel		= nullptr;
+static REDI_V1_Parameters*	s_pParameters	= nullptr;
+static REDI_V1_Buffers*		s_pBuffers		= nullptr;
 
 static bool s_updateBuffers = true;
 static float s_centerPixelValue = 0.0f;
@@ -42,58 +42,55 @@ static std::string getCurrentTimeAndDate()
 
 static void imGui()
 {
-	//if (ImGui::CollapsingHeader("Configuration", ImGuiTreeNodeFlags_DefaultOpen))
-	//{
-	//}
-
-	ImGui::BeginGroup();
-	ImGui::Checkbox("Update", &s_updateBuffers);
-	ImGui::SameLine();
-
-	if (ImGui::Button("Reset"))
-		REDI_V1_Buffers_Reset(s_pBuffers, s_pParameters->fillChance);
-
-	ImGui::SliderFloat("Center pixel", &s_centerPixelValue, 0.0f, 1.0f, "%.3f");
-	ImGui::SliderFloat("Fill Chance", &s_pParameters->fillChance, 0.0f, 1.0f, "%.3f");
-	ImGui::EndGroup();
-
-	ImGui::NewLine();
-
-	ImGui::BeginGroup();
-	ImGui::SliderFloat("Diffuse A", &s_pParameters->diffA, 0.0f, 1.0f, "%.4f");
-	ImGui::SliderFloat("Diffuse B", &s_pParameters->diffB, 0.0f, 1.0f, "%.4f");
-	ImGui::SliderFloat("Feed", &s_pParameters->feed, 0.0f, 0.1f, "%.6f");
-	ImGui::SliderFloat("Kill", &s_pParameters->kill, 0.0f, 0.1f, "%.6f");
-
-	if (ImGui::Button("Save Parameters"))
+	if (ImGuiIsVisible())
 	{
-		std::fstream f;
-		f.open("REDI_V1_Saved Parameters.txt", std::ios::out | std::ios::app);
-
-		if (f)
+		if (ImGui::CollapsingHeader("Reaction diffusion V1", ImGuiTreeNodeFlags_DefaultOpen))
 		{
-			f << std::fixed;
-			f << std::setprecision(7);
+			ImGui::SeparatorText("Options");
+				ImGui::Checkbox("Update", &s_updateBuffers);
+				ImGui::SameLine();
 
-			f << "Time: " << getCurrentTimeAndDate() << "\n";
-			f << "Parameters:\n";
-			f << "\tfloat diffA = " << s_pParameters->diffA << ";\n";
-			f << "\tfloat diffB = " << s_pParameters->diffB << ";\n";
-			f << "\tfloat feed = " << s_pParameters->feed << ";\n";
-			f << "\tfloat kill = " << s_pParameters->kill << ";\n";
-			f << "\n";
+				if (ImGui::Button("Reset"))
+					REDI_V1_Buffers_Reset(s_pBuffers, s_pParameters->fillChance);
 
-			f.close();
-		} // else oops.
+				ImGui::SliderFloat("Center pixel", &s_centerPixelValue, 0.0f, 1.0f, "%.3f");
+				ImGui::SliderFloat("Fill Chance", &s_pParameters->fillChance, 0.0f, 1.0f, "%.3f");
+
+			ImGui::SeparatorText("Parameters");
+				//ImGui::DragFloat("drag small float", &f2, 0.0001f, 0.0f, 0.0f, "%.06f ns");
+
+				ImGui::SliderFloat("Diffuse A", &s_pParameters->diffA, 0.0f, 1.0f, "%.4f");
+				ImGui::SliderFloat("Diffuse B", &s_pParameters->diffB, 0.0f, 1.0f, "%.4f");
+				ImGui::SliderFloat("Feed", &s_pParameters->feed, 0.0f, 0.1f, "%.6f");
+				ImGui::SliderFloat("Kill", &s_pParameters->kill, 0.0f, 0.1f, "%.6f");
+
+				if (ImGui::Button("Save Parameters"))
+				{
+					std::fstream f;
+					f.open("REDI_V1_Saved Parameters.txt", std::ios::out | std::ios::app);
+
+					if (f)
+					{
+						f << std::fixed;
+						f << std::setprecision(7);
+
+						f << "Time: " << getCurrentTimeAndDate() << "\n";
+						f << "Parameters:\n";
+						f << "\tfloat diffA = " << s_pParameters->diffA << ";\n";
+						f << "\tfloat diffB = " << s_pParameters->diffB << ";\n";
+						f << "\tfloat feed = " << s_pParameters->feed << ";\n";
+						f << "\tfloat kill = " << s_pParameters->kill << ";\n";
+						f << "\n";
+
+						f.close();
+					} // else oops.
+				}
+
+			ImGui::SeparatorText("Brightness / contrast");
+				ImGui::SliderFloat("Shape", &s_shape, -0.999f, 0.999f, "%.3f");
+				ImGui::SliderFloat("Gain", &s_gain, -1.0f, 1.0f, "%.3f");
+		}
 	}
-	ImGui::EndGroup();
-
-	ImGui::NewLine();
-
-	ImGui::BeginGroup();
-	ImGui::SliderFloat("Shape", &s_shape, -0.999f, 0.999f, "%.3f");
-	ImGui::SliderFloat("Gain", &s_gain, -1.0f, 1.0f, "%.3f");
-	ImGui::EndGroup();
 }
 
 static void clearBuffers()
@@ -128,7 +125,8 @@ void Reaction_Diffusion_V1_Effect_Draw(uint32_t* pDest, float time, float delta)
 	if (s_updateBuffers)
 		REDI_V1_Buffers_Update(s_pBuffers, s_pKernel, s_pParameters, true);
 
-	s_pBuffers->pBufferB[s_pBuffers->BufferSize / 2 + s_pBuffers->BufferResX / 2] = s_centerPixelValue;
+	if (s_centerPixelValue > 0.0f)
+		s_pBuffers->pBufferB[s_pBuffers->BufferSize / 2 + s_pBuffers->BufferResX / 2] = s_centerPixelValue;
 
 	const size_t sourceResX = s_pBuffers->BufferResX;
 	const size_t sourceResY = s_pBuffers->BufferResY;
@@ -142,7 +140,7 @@ void Reaction_Diffusion_V1_Effect_Draw(uint32_t* pDest, float time, float delta)
 			const size_t srcXidx = xIdx - (destinationResX / 2 - sourceResX / 2);
 			const size_t srcYidx = yIdx - (destinationResY / 2 - sourceResY / 2);
 
-			uint32_t color = 0xff101010;
+			uint32_t color = 0xff080808;
 
 			if (!(srcXidx >= sourceResX || srcYidx >= sourceResY || srcXidx < 0 || srcYidx < 0))
 			{
