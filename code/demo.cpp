@@ -21,7 +21,6 @@
 #include "torus-twister.h"
 #include "tunnelscape.h"
 #include "shadertoy.h"
-#include "reaction-diffusion-v1-effect.h"
 
 // for this production:
 static_assert(kResX == 1280 && kResY == 720);
@@ -147,7 +146,6 @@ bool Demo_Create()
 	fxInit &= Ball_Create();
 	fxInit &= Tunnelscape_Create();
 	fxInit &= Shadertoy_Create();
-	fxInit &= Reaction_Diffusion_V1_Effect_Create();
 
 	// init. sync.
 	trackEffect = Rocket::AddTrack("demo:Effect");
@@ -380,7 +378,6 @@ void Demo_Destroy()
 	Ball_Destroy();
 	Tunnelscape_Destroy();
 	Shadertoy_Destroy();
-	Reaction_Diffusion_V1_Effect_Destroy();
 }
 
 static void FadeFlash(uint32_t *pDest, float fadeToBlack, float fadeToWhite)
@@ -485,522 +482,519 @@ bool Demo_Draw(uint32_t *pDest, float timer, float delta)
 
 	// render effect/part
 	const int effect = Rocket::geti(trackEffect);
+	switch (effect)
+	{
+		case 1:
+			// Quick intermezzo: voxel torus
+			Twister_Draw(pDest, timer, delta);
+//			SoftLight32(pDest, s_pBallVignette, kOutputSize);
+			FadeFlash(pDest, fadeToBlack, fadeToWhite);
 
-	Reaction_Diffusion_V1_Effect_Draw(pDest, timer, delta);
+			// FIXME: placeholder
+			SoftLight32A(pDest, s_pCloseSpikeVignette, kOutputSize);
 
-//	switch (effect)
-//	{
-//		case 1:
-//			// Quick intermezzo: voxel torus
-//			Twister_Draw(pDest, timer, delta);
-////			SoftLight32(pDest, s_pBallVignette, kOutputSize);
-//			FadeFlash(pDest, fadeToBlack, fadeToWhite);
-//
-//			// FIXME: placeholder
-//			SoftLight32A(pDest, s_pCloseSpikeVignette, kOutputSize);
-//
-//			// curious but might be grunge enough for this part
-//			MulSrc32A(pDest, s_pVignette06, kOutputSize);
-//			break;
-//	
-//		case 2:
-//			{
-//				// Introduction: landscape
-//				Landscape_Draw(pDest, timer, delta);
-//
-//				const float scapeFade = saturatef(Rocket::getf(trackScapeFade));
-//				FadeFlash(pDest, scapeFade, 0.f);
-//
-//				// shooting star (or what has to pass for it)
-//				// this is the charm of a hack made possible by Rocket
-//				// FIXME: really shouldn't be using threaded blit function(s) here
-//				if (1 == Rocket::geti(trackShooting))
+			// curious but might be grunge enough for this part
+			MulSrc32A(pDest, s_pVignette06, kOutputSize);
+			break;
+	
+		case 2:
+			{
+				// Introduction: landscape
+				Landscape_Draw(pDest, timer, delta);
+
+				const float scapeFade = saturatef(Rocket::getf(trackScapeFade));
+				FadeFlash(pDest, scapeFade, 0.f);
+
+				// shooting star (or what has to pass for it)
+				// this is the charm of a hack made possible by Rocket
+				// FIXME: really shouldn't be using threaded blit function(s) here
+				if (1 == Rocket::geti(trackShooting))
+				{
+					int xPos = Rocket::geti(trackShootingX);
+					int yPos = Rocket::geti(trackShootingY);
+					float alpha = Rocket::getf(trackShootingAlpha);
+
+					const unsigned offset = yPos*kResX + xPos;
+					BlitAdd32A(pDest + offset, s_pLenz, kResX, kLenzSize, kLenzSize, alpha);
+
+					int trail = Rocket::geti(trackShootingTrail);
+					if (trail > 0)
+					{
+						const int xStep = kLenzSize/16;
+						const int yStep = 1;
+						const float alphaStep = alpha/trail;
+
+						for (int iTrail = 0; iTrail < trail; ++iTrail)
+						{
+							xPos += xStep; // simply assuming we're going from right to left...
+							yPos -= yStep; // ... and from top to bottom
+							alpha -= alphaStep;
+
+							const unsigned offset = yPos*kResX + xPos;
+							BlitAdd32A(pDest + offset, s_pLenz, kResX, kLenzSize, kLenzSize, alpha);
+						}
+					}
+				}
+
+				// add overlay
+				const float overlayAlpha = saturatef(Rocket::getf(trackScapeOverlay));
+				if (0.f != overlayAlpha)
+					BlitAdd32A(pDest, s_pGodLayer, kResX, kResX, kResY, overlayAlpha);
+
+				// add Revision logo
+				const float alphaRev = saturatef(Rocket::getf(trackScapeRevision));
+				if (0.f != alphaRev)
+				{
+					if (alphaRev < 0.314f)
+					{
+						const float easeA = easeOutElasticf(alphaRev)*kGoldenAngle;
+						const float easeB = easeInBackf(alphaRev)*kGoldenRatio;
+						TapeWarp32(g_renderTarget[0], s_pRevLogo, kResX, kResY, easeA, easeB);
+						BlitSrc32A(pDest, g_renderTarget[0], kResX, kResX, kResY, alphaRev);
+					}
+					else
+					{
+						BoxBlur32(g_renderTarget[0], s_pRevLogo, kResX, kResY, BoxBlurScale(((alphaRev-0.314f)*k2PI)));
+						BlitSrc32A(pDest, g_renderTarget[0], kResX, kResX, kResY, alphaRev);
+					}
+				}
+
+				FadeFlash(pDest, fadeToBlack, fadeToWhite);
+
+				// FIXME: placeholder
+				SoftLight32A(pDest, s_pCloseSpikeVignette, kOutputSize);
+			}
+			break;
+
+		case 3:
+			// Voxel ball
+			{
+				Ball_Draw(pDest, timer, delta);
+
+				if (false == Ball_HasBeams())
+					MulSrc32(pDest, s_pGreetingsVignette, kOutputSize); // FIXME: borrowed/placeholder
+				else
+					SoftLight32(pDest, s_pBallVignette, kOutputSize);
+
+				FadeFlash(pDest, fadeToBlack, fadeToWhite);
+
+				// I'm unsure how this looks (might need tweaking), but let's just try it on the beams version to "grime" it up a little
+				if (true == Ball_HasBeams())				
+					MulSrc32A(pDest, s_pVignette06, kOutputSize);
+			}
+			break;
+
+		case 4:
+			// Tunnels (also see case 9)
+			{
+				Tunnelscape_Draw(pDest, timer, delta);
+
+				Sub32(pDest, s_pTunnelVignette2, kOutputSize);
+
+				MixSrc32(pDest, s_pTunnelFullDirt, kOutputSize);
+
+				// FIXME: belongs to the old lens dirt overlay; remove, or?
+//				const float dirt = Rocket::getf(trackDirt);
+//				if (0.f == dirt)
 //				{
-//					int xPos = Rocket::geti(trackShootingX);
-//					int yPos = Rocket::geti(trackShootingY);
-//					float alpha = Rocket::getf(trackShootingAlpha);
-//
-//					const unsigned offset = yPos*kResX + xPos;
-//					BlitAdd32A(pDest + offset, s_pLenz, kResX, kLenzSize, kLenzSize, alpha);
-//
-//					int trail = Rocket::geti(trackShootingTrail);
-//					if (trail > 0)
-//					{
-//						const int xStep = kLenzSize/16;
-//						const int yStep = 1;
-//						const float alphaStep = alpha/trail;
-//
-//						for (int iTrail = 0; iTrail < trail; ++iTrail)
-//						{
-//							xPos += xStep; // simply assuming we're going from right to left...
-//							yPos -= yStep; // ... and from top to bottom
-//							alpha -= alphaStep;
-//
-//							const unsigned offset = yPos*kResX + xPos;
-//							BlitAdd32A(pDest + offset, s_pLenz, kResX, kLenzSize, kLenzSize, alpha);
-//						}
-//					}
-//				}
-//
-//				// add overlay
-//				const float overlayAlpha = saturatef(Rocket::getf(trackScapeOverlay));
-//				if (0.f != overlayAlpha)
-//					BlitAdd32A(pDest, s_pGodLayer, kResX, kResX, kResY, overlayAlpha);
-//
-//				// add Revision logo
-//				const float alphaRev = saturatef(Rocket::getf(trackScapeRevision));
-//				if (0.f != alphaRev)
-//				{
-//					if (alphaRev < 0.314f)
-//					{
-//						const float easeA = easeOutElasticf(alphaRev)*kGoldenAngle;
-//						const float easeB = easeInBackf(alphaRev)*kGoldenRatio;
-//						TapeWarp32(g_renderTarget[0], s_pRevLogo, kResX, kResY, easeA, easeB);
-//						BlitSrc32A(pDest, g_renderTarget[0], kResX, kResX, kResY, alphaRev);
-//					}
-//					else
-//					{
-//						BoxBlur32(g_renderTarget[0], s_pRevLogo, kResX, kResY, BoxBlurScale(((alphaRev-0.314f)*k2PI)));
-//						BlitSrc32A(pDest, g_renderTarget[0], kResX, kResX, kResY, alphaRev);
-//					}
-//				}
-//
-//				FadeFlash(pDest, fadeToBlack, fadeToWhite);
-//
-//				// FIXME: placeholder
-//				SoftLight32A(pDest, s_pCloseSpikeVignette, kOutputSize);
-//			}
-//			break;
-//
-//		case 3:
-//			// Voxel ball
-//			{
-//				Ball_Draw(pDest, timer, delta);
-//
-//				if (false == Ball_HasBeams())
-//					MulSrc32(pDest, s_pGreetingsVignette, kOutputSize); // FIXME: borrowed/placeholder
-//				else
-//					SoftLight32(pDest, s_pBallVignette, kOutputSize);
-//
-//				FadeFlash(pDest, fadeToBlack, fadeToWhite);
-//
-//				// I'm unsure how this looks (might need tweaking), but let's just try it on the beams version to "grime" it up a little
-//				if (true == Ball_HasBeams())				
-//					MulSrc32A(pDest, s_pVignette06, kOutputSize);
-//			}
-//			break;
-//
-//		case 4:
-//			// Tunnels (also see case 9)
-//			{
-//				Tunnelscape_Draw(pDest, timer, delta);
-//
-//				Sub32(pDest, s_pTunnelVignette2, kOutputSize);
-//
-//				MixSrc32(pDest, s_pTunnelFullDirt, kOutputSize);
-//
-//				// FIXME: belongs to the old lens dirt overlay; remove, or?
-////				const float dirt = Rocket::getf(trackDirt);
-////				if (0.f == dirt)
-////				{
-////					Excl32(pDest, s_pTunnelFullDirt, kOutputSize);
-////				}
-////				else
-////				{
-////					BoxBlur32(g_renderTarget[0], s_pTunnelFullDirt, kResX, kResY, BoxBlurScale(dirt));
-////					Excl32(pDest, g_renderTarget[0], kOutputSize);
-////				}
-//
-//				const float show1995 = clampf(0.f, 3.f, Rocket::getf(trackShow1995));
-//				if (show1995 > 0.f)
-//					MixOver32(pDest, BloodBlend(show1995, s_pNoooN), kOutputSize);
-//
-//				Overlay32(pDest, s_pTunnelVignette, kOutputSize);
-//			}
-//			break;
-//		
-//		case 5:
-//			// Plasma and credits
-//			{
-//				Plasma_Draw(pDest, timer, delta);
-//
-//				const int iLogo = clampi(0, 4, Rocket::geti(trackCreditLogo));
-//				if (0 != iLogo)
-//				{
-//					const float logoBlend = clampf(0.f, 4.f, Rocket::getf(trackCreditLogoBlend));
-//					if (true) // (1 == iLogo || 2 == iLogo) // Superplek & Comatron (ordered after s_pCredits)
-//					{
-//						uint32_t **pLogos;
-//						switch (iLogo-1) // again, ordered after s_pCredits
-//						{
-//						case 0:
-//							pLogos = s_pSuperplek;
-//							break;
-//
-//						case 1:
-//							pLogos = s_pComatron;
-//							break;
-//
-//						case 2:
-//							pLogos = s_pJadeNytrik;
-//							break;
-//
-//						case 3:
-//							pLogos = s_pErnstHot;
-//							break;
-//
-//						default:
-//							pLogos = nullptr;
-//							VIZ_ASSERT(false);
-//						}
-//
-//						// credit logo blit (animated)
-//						uint32_t *pCur = CreditBlend(logoBlend, pLogos);
-//
-//						const float blurH = Rocket::getf(trackCreditLogoBlurH);
-//						if (0.f != blurH)
-//						{
-//							HorizontalBoxBlur32(g_renderTarget[0], pCur, kCredX, kCredY, BoxBlurScale(blurH));
-//							pCur = g_renderTarget[0];
-//						}
-//
-//						const float blurV = Rocket::getf(trackCreditLogoBlurV);
-//						if (0 != blurV)
-//						{
-//							VerticalBoxBlur32(g_renderTarget[0], pCur, kCredX, kCredY, BoxBlurScale(blurV));
-//							pCur = g_renderTarget[0];
-//						}
-//
-//						BlitSrc32A(pDest + ((kResY-kCredY)>>1)*kResX, pCur, kResX, kCredX, kCredY, clampf(0.f, 1.f, Rocket::getf(trackCreditLogoAlpha)));
-//					}
-//					else
-//					{
-//						// credit logo blit (rest)
-//						uint32_t *pCur = s_pCredits[iLogo-1];
-//
-//						const float blurH = Rocket::getf(trackCreditLogoBlurH);
-//						if (0.f != blurH)
-//						{
-//							HorizontalBoxBlur32(g_renderTarget[0], pCur, kCredX, kCredY, BoxBlurScale(blurH));
-//							pCur = g_renderTarget[0];
-//						}
-//
-//						const float blurV = Rocket::getf(trackCreditLogoBlurV);
-//						if (0 != blurV)
-//						{
-//							VerticalBoxBlur32(g_renderTarget[0], pCur, kCredX, kCredY, BoxBlurScale(blurV));
-//							pCur = g_renderTarget[0];
-//						}
-//
-//						BlitSrc32A(pDest + ((kResY-kCredY)>>1)*kResX, pCur, kResX, kCredX, kCredY, clampf(0.f, 1.f, Rocket::getf(trackCreditLogoAlpha)));
-//					}
-//				}
-//			}
-//			break;
-//
-//		case 6:
-//			// Nautilus (Michiel, RIP)
-//			{
-//				Nautilus_Draw(pDest, timer, delta);
-//				SoftLight32(pDest, s_pNautilusVignette, kOutputSize);
-//				SoftLight32(pDest, s_pNautilusDirt, kOutputSize);
-//				FadeFlash(pDest, fadeToBlack, 0.f);
-//
-//				// just so we can add a little shakin'
-//				const uint32_t *pCousteau;
-//				const uint32_t *pCousteauRim;
-//				if (0 == Rocket::geti(trackCousteau))
-//				{
-//					pCousteau = s_pNautilusCousteau1;
-//					pCousteauRim = s_pNautilusCousteauRim1;
+//					Excl32(pDest, s_pTunnelFullDirt, kOutputSize);
 //				}
 //				else
 //				{
-//					pCousteau = s_pNautilusCousteau2;
-//					pCousteauRim = s_pNautilusCousteauRim2;
+//					BoxBlur32(g_renderTarget[0], s_pTunnelFullDirt, kResX, kResY, BoxBlurScale(dirt));
+//					Excl32(pDest, g_renderTarget[0], kOutputSize);
 //				}
-//
-//				// add rim overlay
-//				Overlay32A(pDest, pCousteauRim, kOutputSize);
-//
-//				float hBlur = Rocket::getf(trackCousteauHorzBlur);
-//				if (0.f != hBlur)
-//				{
-//					hBlur = BoxBlurScale(hBlur);
-//					HorizontalBoxBlur32(g_renderTarget[0], pCousteau, kResX, kResY, hBlur);
-//					pCousteau = g_renderTarget[0];
-//				}
-//
-//				// and now Jacques himself!
-//				MixSrc32(pDest, pCousteau, kOutputSize);
-//
-//				FadeFlash(pDest, 0.f, fadeToWhite);
-//
-//				MixSrc32(pDest, s_pNautilusText, kOutputSize);
-//			}
-//			break;
-//      
-//		case 7:			
-//			{
-//				// Close-up spike ball
-//				Spikey_Draw(pDest, timer, delta, true);
-//
-//				// what follows ain't pretty
-//				const auto dirt = Rocket::geti(trackDirt);
-//
-//				if (1 != dirt)
-//					MulSrc32(pDest, s_pSpikeyVignette, kOutputSize);
-//
-//				if (1 == dirt)
-//				{
-//					// Moonraker
-//					const float raker = Rocket::getf(trackCloseUpMoonraker);
-//					const float rakerText = clampf(0.f, 2.f, Rocket::getf(trackCloseUpMoonrakerText));
-//					
-//					if (raker > 0.f)
-//					{
-//						MulSrc32(pDest, s_pCloseSpikeVignetteForRaker, kOutputSize);
-//						SoftLight32AA(pDest, s_pCloseSpikeDirtRaker, kOutputSize, raker);
-//						
-//						if (rakerText > 0.f && rakerText < 1.f)
-//						{						
-//							// this is shit slow, but it'll only last a short whole (FIXME: optimize for major release)
-//							memset32(g_renderTarget[2], 0, kOutputSize);
-//							BlitSrc32(g_renderTarget[2] + ((kResY-115)*kResX), s_pCloseSpike1961, kResX, 624, 115);
-//							SoftLight32AA(pDest, g_renderTarget[2], kOutputSize, rakerText); // <- this would be the function to make work on arbitrarily sized bitmaps
-//						}
-//						else if (rakerText >= 1.f)
-//						{
-//							// just (possibly) blur and blit
-//
-//							const uint32_t *pText = s_pCloseSpike1961;
-//							const float rakerBlur = clampf(0.f, 100.f, Rocket::getf(trackCloseUpMoonrakerTextBlur));
-//							if (rakerBlur >= 1.f)
-//							{
-//								HorizontalBoxBlur32(g_renderTarget[3] /* just assuming this one is free */, pText, 624, 115, BoxBlurScale(rakerBlur));
-//								pText = g_renderTarget[3];
-//							}
-//
-//							BlitSrc32(pDest + ((kResY-115)*kResX), pText, kResX, 624, 115);
-//						}
-//						
-//
-//						FadeFlash(pDest, 0.f, fadeToWhite);
-//						Overlay32(pDest, s_pCloseSpikeDirtRaker, kOutputSize);
-//						FadeFlash(pDest, fadeToBlack, 0.f);
-//					}
-//				}
-//				else if (2 == dirt)
-//					SoftLight32AA(pDest, s_pGreetingsDirt, kOutputSize, 0.09f*kGoldenAngle); // FIXME: borrowed asset
-//				else if (3 == dirt)
-//					SoftLight32AA(pDest, s_pGreetingsDirt, kOutputSize, 0.075f*kGoldenAngle); // FIXME: borrowed asset
-//
-//				if (1 != dirt)
-//					FadeFlash(pDest, fadeToBlack, fadeToWhite);
-//			}
-//			break;
-//
-//		case 8:
-//			{
-//				const int logoIdx = clampi(0, 4, Rocket::geti(trackSpikeDemoLogoIndex));
-//
-//				// Spike ball with title and group name (Bypass)
-//				Spikey_Draw(pDest, timer, delta, false);
-//				FadeFlash(pDest, fadeToBlack, fadeToWhite);
-//				SoftLight32(pDest, s_pSpikeyBypass, kOutputSize);
-//				Sub32(pDest, s_pSpikeyVignette2, kOutputSize);
-//				Excl32(pDest, s_pSpikeyFullDirt, kOutputSize);
-//				MulSrc32A(pDest, s_pVignette06, kOutputSize);
-//
-//				if (0 != logoIdx)
-//					MixOver32(pDest, s_pSpikeyArrested[logoIdx-1], kOutputSize);
-//				
-//				Overlay32(pDest, s_pSpikeyVignette, kOutputSize);
-//			}
-//			break;
-//
-//		case 9:
-//			// Part of the 'tunnels' part
-//			{
-//				Tunnel_Draw(pDest, timer, delta);
-//				Sub32(pDest, s_pTunnelVignette2, kOutputSize);
-//
-//				const float show2006 = clampf(0.f, 3.f, Rocket::getf(trackShow2006));
-//				if (show2006 > 0.f)
-//					MixOver32(pDest, BloodBlend(show2006, s_pMFX), kOutputSize);
-//			}
-//			break;
-//
-//		case 10:
-//			// The 'under water' tunnel
-//			{
-//				const float overlayA = saturatef(Rocket::getf(trackWaterLove));
-//				Sinuses_Draw(pDest, timer, delta);
-//
-//				const uint32_t *pWaterOverlay = s_pWaterPrismOverlay;
-//				const float waterOverlayBlurHorz = clampf(0.f, 100.f, Rocket::getf(trackLoveBlurHorz));
-//				if (0.f != waterOverlayBlurHorz)
-//				{
-//					HorizontalBoxBlur32(g_renderTarget[0], pWaterOverlay, kResX, kResY, BoxBlurScale(waterOverlayBlurHorz));
-//					pWaterOverlay = g_renderTarget[0];
-//				}
-//
-//				BlitAdd32A(pDest, pWaterOverlay, kResX, kResX, kResY, overlayA);
-//
-//				if (0 != Rocket::geti(trackDirt))
-//					MulSrc32(pDest, s_pWaterDirt, kOutputSize);
-//
-//				FadeFlash(pDest, fadeToBlack, fadeToWhite);
-//			}
-//			break;
-//
-//		case 11:
-//			// What was supposed to be the 'Aura for Laura' grid, but became boxy and intended for greetings
-//			{
-//				Laura_Draw(pDest, timer, delta);
-//
-//				const int greetSwitch = Rocket::geti(trackGreetSwitch);
-//
-//				Darken32_50(pDest, s_pGreetings[greetSwitch], kOutputSize);
-//				SoftLight32(pDest, s_pGreetingsDirt, kOutputSize);
-//
-//				const auto yOffs = ((kResY-243)/2) + 227;
-//				const auto xOffs = 24; // ((kResX-263)/2) - 300;
-//				BlitSrc32(pDest + xOffs + yOffs*kResX, g_pXboxLogoTPB, kResX, 263, 243);
-//
-//				Overlay32(pDest, s_pGreetingsVignette, kOutputSize);
-//			}
-//			break;
-//
-//		case 12:
-//			{
-//				// TPB represent
-//				
-//				// first let's check if we want the simple (warp everything) version or the more sophisticated warp logo only version
-//				const bool warpAll = 0 != Rocket::geti(trackFullWarpTPB);
-//
-//				if (false == warpAll)
-//				{
-//					// clear 2 targets, so we can composite them and only warp one
-//					memset32(g_renderTarget[0], 0xffffff, kOutputSize);
-//					memset32(pDest, 0xffffff, kOutputSize);
-//
-//					// ribbon to layer 
-//					const auto ribX = clampi(0, kResX, Rocket::geti(trackRibbonsTPB));
-//					MixSrc32S(pDest, s_pRibbons + ribX, kResX, kResY-1, 2160); // FIXME
-//
-//	//				BlitSrc32(g_renderTarget[0] + ((kResX-800)/2) + ((kResY-600)/2)*kResX, g_pNytrikMexico, kResX, 800, 600);
-//	//				memcpy(g_renderTarget[0], g_pNytrikTPB, kOutputBytes);
-//
-//					// logo to layer
-//					MixSrc32(g_renderTarget[0], g_pNytrikTPB, kOutputSize);
-//
-//					// blur logo
-//					float blurTPB = Rocket::getf(trackBlurTPB);
-//					if (0.f != blurTPB)
-//					{
-//						blurTPB = BoxBlurScale(blurTPB);
-//						HorizontalBoxBlur32(g_renderTarget[0], g_renderTarget[0], kResX, kResY, blurTPB);
-//					}
-//
-//					// distort logo
-//					const float distortTPB = Rocket::getf(trackDistortTPB);
-//					const float distortStrengthTPB = Rocket::getf(trackDistortStrengthTPB);
-//					TapeWarp32(g_renderTarget[1], g_renderTarget[0], kResX, kResY, distortStrengthTPB, distortTPB);
-//
-//					// add logo on top of layer
-//					MixOver32(pDest, g_renderTarget[1], kOutputSize);
-//				}
-//				else
-//				{
-//					// some subtle re-use of the plasma marching effect
-//					Plasma_Draw(pDest, timer, delta);
-//
-//					// logo to layer (FIXME: blit instead?)
-//					memset32(g_renderTarget[0], 0xffffff, kOutputSize);
-//					MixSrc32(g_renderTarget[0], g_pNytrikTPB, kOutputSize);
-//
-//					// blur logo (V)
-//					float blurTPB = Rocket::getf(trackBlurTPB);
-//					if (0.f != blurTPB)
-//					{
-//						blurTPB = BoxBlurScale(blurTPB);
-//						VerticalBoxBlur32(g_renderTarget[0], g_renderTarget[0], kResX, kResY, blurTPB);
-//					}
-//
-//					// distort logo
-//					const float distortTPB = Rocket::getf(trackDistortTPB);
-//					const float distortStrengthTPB = Rocket::getf(trackDistortStrengthTPB);
-//					TapeWarp32(g_renderTarget[1], g_renderTarget[0], kResX, kResY, distortStrengthTPB, distortTPB);
-//
-//					// add logo on top of layer
-//					MixOver32(pDest, g_renderTarget[1], kOutputSize);
-//				}
-//
-//				// vignette
-//				MulSrc32(pDest, s_pNautilusVignette, kOutputSize); // FIXME: placeholder
-//
-//			}
-//			break;
-//
-//		case 13:
-//			{
-//				memset32(pDest, 0, kResX*kResY);
-//
-//				const float discoGuys = saturatef(Rocket::getf(trackDiscoGuys));
-//				const float joke = saturatef(Rocket::getf(trackCheapJoke));
-//
-//				if (discoGuys > 0.f)
-//				{
-//					const unsigned xStart = (kResX-(8*128))>>1;
-//					const unsigned yOffs = ((kResY-128)>>1) + 16;
-//					for (int iGuy = 0; iGuy < 8; ++iGuy)
-//					{
-//						// this gives me the opportunity to for ex. fade them in in order
-//						const float appearance = saturatef(Rocket::getf(trackDiscoGuysAppearance[iGuy]));
-//
-//						BlitSrc32A(pDest + xStart + iGuy*128 + yOffs*kResX, s_pDiscoGuys[iGuy], kResX, 128, 128, discoGuys*smootherstepf(0.f, 1.f, appearance));
-//
-//						if (discoGuys < 1.f)
-//						{
-//							uint32_t *pStrip = pDest + yOffs*kResX;
-//							HorizontalBoxBlur32(pStrip, pStrip, kResX, 128, BoxBlurScale((1.f-discoGuys)*k2PI*kGoldenAngle));
-//						}
-//					}
-//
-//					// (semi-)full credits
-////					BlitAdd32A(pDest + (((kResX-1000)/2)-1) + (yOffs+130)*kResX, s_pAreWeDone, kResX, 1000, 52, discoGuys);
-//					BlitAdd32A(pDest + (((kResX-1100)/2)-1) + (yOffs+130)*kResX, s_pAreWeDone, kResX, 1100, 57, discoGuys);
-//				}
-//				else if (joke > 0.f)
-//				{
-//					// they can't 'ford no GPU
-//					memset(pDest, 0, kOutputBytes);
-//					BlitSrc32A(pDest + ((kResX-960)/2) + (((kResY-160 )/2)*kResX), s_pGPUJoke, kResX, 960, 160, joke);
-//				}
-//			}
-//			break;
-//
-//		default:
-//			FxBlitter_DrawTestPattern(pDest);
-//                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 	}
-//
-//	// post fade/flash
-//	switch (effect)
-//	{
-//	case 1:
-//	case 2:
-//	case 3:
-//	case 6:
-//	case 7:
-//	case 8:
-//	case 10:
-//		// handled by effect/part
-//		break;
-//
-//	default:
-//		FadeFlash(pDest, fadeToBlack, fadeToWhite);
-//	}
+
+				const float show1995 = clampf(0.f, 3.f, Rocket::getf(trackShow1995));
+				if (show1995 > 0.f)
+					MixOver32(pDest, BloodBlend(show1995, s_pNoooN), kOutputSize);
+
+				Overlay32(pDest, s_pTunnelVignette, kOutputSize);
+			}
+			break;
+		
+		case 5:
+			// Plasma and credits
+			{
+				Plasma_Draw(pDest, timer, delta);
+
+				const int iLogo = clampi(0, 4, Rocket::geti(trackCreditLogo));
+				if (0 != iLogo)
+				{
+					const float logoBlend = clampf(0.f, 4.f, Rocket::getf(trackCreditLogoBlend));
+					if (true) // (1 == iLogo || 2 == iLogo) // Superplek & Comatron (ordered after s_pCredits)
+					{
+						uint32_t **pLogos;
+						switch (iLogo-1) // again, ordered after s_pCredits
+						{
+						case 0:
+							pLogos = s_pSuperplek;
+							break;
+
+						case 1:
+							pLogos = s_pComatron;
+							break;
+
+						case 2:
+							pLogos = s_pJadeNytrik;
+							break;
+
+						case 3:
+							pLogos = s_pErnstHot;
+							break;
+
+						default:
+							pLogos = nullptr;
+							VIZ_ASSERT(false);
+						}
+
+						// credit logo blit (animated)
+						uint32_t *pCur = CreditBlend(logoBlend, pLogos);
+
+						const float blurH = Rocket::getf(trackCreditLogoBlurH);
+						if (0.f != blurH)
+						{
+							HorizontalBoxBlur32(g_renderTarget[0], pCur, kCredX, kCredY, BoxBlurScale(blurH));
+							pCur = g_renderTarget[0];
+						}
+
+						const float blurV = Rocket::getf(trackCreditLogoBlurV);
+						if (0 != blurV)
+						{
+							VerticalBoxBlur32(g_renderTarget[0], pCur, kCredX, kCredY, BoxBlurScale(blurV));
+							pCur = g_renderTarget[0];
+						}
+
+						BlitSrc32A(pDest + ((kResY-kCredY)>>1)*kResX, pCur, kResX, kCredX, kCredY, clampf(0.f, 1.f, Rocket::getf(trackCreditLogoAlpha)));
+					}
+					else
+					{
+						// credit logo blit (rest)
+						uint32_t *pCur = s_pCredits[iLogo-1];
+
+						const float blurH = Rocket::getf(trackCreditLogoBlurH);
+						if (0.f != blurH)
+						{
+							HorizontalBoxBlur32(g_renderTarget[0], pCur, kCredX, kCredY, BoxBlurScale(blurH));
+							pCur = g_renderTarget[0];
+						}
+
+						const float blurV = Rocket::getf(trackCreditLogoBlurV);
+						if (0 != blurV)
+						{
+							VerticalBoxBlur32(g_renderTarget[0], pCur, kCredX, kCredY, BoxBlurScale(blurV));
+							pCur = g_renderTarget[0];
+						}
+
+						BlitSrc32A(pDest + ((kResY-kCredY)>>1)*kResX, pCur, kResX, kCredX, kCredY, clampf(0.f, 1.f, Rocket::getf(trackCreditLogoAlpha)));
+					}
+				}
+			}
+			break;
+
+		case 6:
+			// Nautilus (Michiel, RIP)
+			{
+				Nautilus_Draw(pDest, timer, delta);
+				SoftLight32(pDest, s_pNautilusVignette, kOutputSize);
+				SoftLight32(pDest, s_pNautilusDirt, kOutputSize);
+				FadeFlash(pDest, fadeToBlack, 0.f);
+
+				// just so we can add a little shakin'
+				const uint32_t *pCousteau;
+				const uint32_t *pCousteauRim;
+				if (0 == Rocket::geti(trackCousteau))
+				{
+					pCousteau = s_pNautilusCousteau1;
+					pCousteauRim = s_pNautilusCousteauRim1;
+				}
+				else
+				{
+					pCousteau = s_pNautilusCousteau2;
+					pCousteauRim = s_pNautilusCousteauRim2;
+				}
+
+				// add rim overlay
+				Overlay32A(pDest, pCousteauRim, kOutputSize);
+
+				float hBlur = Rocket::getf(trackCousteauHorzBlur);
+				if (0.f != hBlur)
+				{
+					hBlur = BoxBlurScale(hBlur);
+					HorizontalBoxBlur32(g_renderTarget[0], pCousteau, kResX, kResY, hBlur);
+					pCousteau = g_renderTarget[0];
+				}
+
+				// and now Jacques himself!
+				MixSrc32(pDest, pCousteau, kOutputSize);
+
+				FadeFlash(pDest, 0.f, fadeToWhite);
+
+				MixSrc32(pDest, s_pNautilusText, kOutputSize);
+			}
+			break;
+      
+		case 7:			
+			{
+				// Close-up spike ball
+				Spikey_Draw(pDest, timer, delta, true);
+
+				// what follows ain't pretty
+				const auto dirt = Rocket::geti(trackDirt);
+
+				if (1 != dirt)
+					MulSrc32(pDest, s_pSpikeyVignette, kOutputSize);
+
+				if (1 == dirt)
+				{
+					// Moonraker
+					const float raker = Rocket::getf(trackCloseUpMoonraker);
+					const float rakerText = clampf(0.f, 2.f, Rocket::getf(trackCloseUpMoonrakerText));
+					
+					if (raker > 0.f)
+					{
+						MulSrc32(pDest, s_pCloseSpikeVignetteForRaker, kOutputSize);
+						SoftLight32AA(pDest, s_pCloseSpikeDirtRaker, kOutputSize, raker);
+						
+						if (rakerText > 0.f && rakerText < 1.f)
+						{						
+							// this is shit slow, but it'll only last a short whole (FIXME: optimize for major release)
+							memset32(g_renderTarget[2], 0, kOutputSize);
+							BlitSrc32(g_renderTarget[2] + ((kResY-115)*kResX), s_pCloseSpike1961, kResX, 624, 115);
+							SoftLight32AA(pDest, g_renderTarget[2], kOutputSize, rakerText); // <- this would be the function to make work on arbitrarily sized bitmaps
+						}
+						else if (rakerText >= 1.f)
+						{
+							// just (possibly) blur and blit
+
+							const uint32_t *pText = s_pCloseSpike1961;
+							const float rakerBlur = clampf(0.f, 100.f, Rocket::getf(trackCloseUpMoonrakerTextBlur));
+							if (rakerBlur >= 1.f)
+							{
+								HorizontalBoxBlur32(g_renderTarget[3] /* just assuming this one is free */, pText, 624, 115, BoxBlurScale(rakerBlur));
+								pText = g_renderTarget[3];
+							}
+
+							BlitSrc32(pDest + ((kResY-115)*kResX), pText, kResX, 624, 115);
+						}
+						
+
+						FadeFlash(pDest, 0.f, fadeToWhite);
+						Overlay32(pDest, s_pCloseSpikeDirtRaker, kOutputSize);
+						FadeFlash(pDest, fadeToBlack, 0.f);
+					}
+				}
+				else if (2 == dirt)
+					SoftLight32AA(pDest, s_pGreetingsDirt, kOutputSize, 0.09f*kGoldenAngle); // FIXME: borrowed asset
+				else if (3 == dirt)
+					SoftLight32AA(pDest, s_pGreetingsDirt, kOutputSize, 0.075f*kGoldenAngle); // FIXME: borrowed asset
+
+				if (1 != dirt)
+					FadeFlash(pDest, fadeToBlack, fadeToWhite);
+			}
+			break;
+
+		case 8:
+			{
+				const int logoIdx = clampi(0, 4, Rocket::geti(trackSpikeDemoLogoIndex));
+
+				// Spike ball with title and group name (Bypass)
+				Spikey_Draw(pDest, timer, delta, false);
+				FadeFlash(pDest, fadeToBlack, fadeToWhite);
+				SoftLight32(pDest, s_pSpikeyBypass, kOutputSize);
+				Sub32(pDest, s_pSpikeyVignette2, kOutputSize);
+				Excl32(pDest, s_pSpikeyFullDirt, kOutputSize);
+				MulSrc32A(pDest, s_pVignette06, kOutputSize);
+
+				if (0 != logoIdx)
+					MixOver32(pDest, s_pSpikeyArrested[logoIdx-1], kOutputSize);
+				
+				Overlay32(pDest, s_pSpikeyVignette, kOutputSize);
+			}
+			break;
+
+		case 9:
+			// Part of the 'tunnels' part
+			{
+				Tunnel_Draw(pDest, timer, delta);
+				Sub32(pDest, s_pTunnelVignette2, kOutputSize);
+
+				const float show2006 = clampf(0.f, 3.f, Rocket::getf(trackShow2006));
+				if (show2006 > 0.f)
+					MixOver32(pDest, BloodBlend(show2006, s_pMFX), kOutputSize);
+			}
+			break;
+
+		case 10:
+			// The 'under water' tunnel
+			{
+				const float overlayA = saturatef(Rocket::getf(trackWaterLove));
+				Sinuses_Draw(pDest, timer, delta);
+
+				const uint32_t *pWaterOverlay = s_pWaterPrismOverlay;
+				const float waterOverlayBlurHorz = clampf(0.f, 100.f, Rocket::getf(trackLoveBlurHorz));
+				if (0.f != waterOverlayBlurHorz)
+				{
+					HorizontalBoxBlur32(g_renderTarget[0], pWaterOverlay, kResX, kResY, BoxBlurScale(waterOverlayBlurHorz));
+					pWaterOverlay = g_renderTarget[0];
+				}
+
+				BlitAdd32A(pDest, pWaterOverlay, kResX, kResX, kResY, overlayA);
+
+				if (0 != Rocket::geti(trackDirt))
+					MulSrc32(pDest, s_pWaterDirt, kOutputSize);
+
+				FadeFlash(pDest, fadeToBlack, fadeToWhite);
+			}
+			break;
+
+		case 11:
+			// What was supposed to be the 'Aura for Laura' grid, but became boxy and intended for greetings
+			{
+				Laura_Draw(pDest, timer, delta);
+
+				const int greetSwitch = Rocket::geti(trackGreetSwitch);
+
+				Darken32_50(pDest, s_pGreetings[greetSwitch], kOutputSize);
+				SoftLight32(pDest, s_pGreetingsDirt, kOutputSize);
+
+				const auto yOffs = ((kResY-243)/2) + 227;
+				const auto xOffs = 24; // ((kResX-263)/2) - 300;
+				BlitSrc32(pDest + xOffs + yOffs*kResX, g_pXboxLogoTPB, kResX, 263, 243);
+
+				Overlay32(pDest, s_pGreetingsVignette, kOutputSize);
+			}
+			break;
+
+		case 12:
+			{
+				// TPB represent
+				
+				// first let's check if we want the simple (warp everything) version or the more sophisticated warp logo only version
+				const bool warpAll = 0 != Rocket::geti(trackFullWarpTPB);
+
+				if (false == warpAll)
+				{
+					// clear 2 targets, so we can composite them and only warp one
+					memset32(g_renderTarget[0], 0xffffff, kOutputSize);
+					memset32(pDest, 0xffffff, kOutputSize);
+
+					// ribbon to layer 
+					const auto ribX = clampi(0, kResX, Rocket::geti(trackRibbonsTPB));
+					MixSrc32S(pDest, s_pRibbons + ribX, kResX, kResY-1, 2160); // FIXME
+
+	//				BlitSrc32(g_renderTarget[0] + ((kResX-800)/2) + ((kResY-600)/2)*kResX, g_pNytrikMexico, kResX, 800, 600);
+	//				memcpy(g_renderTarget[0], g_pNytrikTPB, kOutputBytes);
+
+					// logo to layer
+					MixSrc32(g_renderTarget[0], g_pNytrikTPB, kOutputSize);
+
+					// blur logo
+					float blurTPB = Rocket::getf(trackBlurTPB);
+					if (0.f != blurTPB)
+					{
+						blurTPB = BoxBlurScale(blurTPB);
+						HorizontalBoxBlur32(g_renderTarget[0], g_renderTarget[0], kResX, kResY, blurTPB);
+					}
+
+					// distort logo
+					const float distortTPB = Rocket::getf(trackDistortTPB);
+					const float distortStrengthTPB = Rocket::getf(trackDistortStrengthTPB);
+					TapeWarp32(g_renderTarget[1], g_renderTarget[0], kResX, kResY, distortStrengthTPB, distortTPB);
+
+					// add logo on top of layer
+					MixOver32(pDest, g_renderTarget[1], kOutputSize);
+				}
+				else
+				{
+					// some subtle re-use of the plasma marching effect
+					Plasma_Draw(pDest, timer, delta);
+
+					// logo to layer (FIXME: blit instead?)
+					memset32(g_renderTarget[0], 0xffffff, kOutputSize);
+					MixSrc32(g_renderTarget[0], g_pNytrikTPB, kOutputSize);
+
+					// blur logo (V)
+					float blurTPB = Rocket::getf(trackBlurTPB);
+					if (0.f != blurTPB)
+					{
+						blurTPB = BoxBlurScale(blurTPB);
+						VerticalBoxBlur32(g_renderTarget[0], g_renderTarget[0], kResX, kResY, blurTPB);
+					}
+
+					// distort logo
+					const float distortTPB = Rocket::getf(trackDistortTPB);
+					const float distortStrengthTPB = Rocket::getf(trackDistortStrengthTPB);
+					TapeWarp32(g_renderTarget[1], g_renderTarget[0], kResX, kResY, distortStrengthTPB, distortTPB);
+
+					// add logo on top of layer
+					MixOver32(pDest, g_renderTarget[1], kOutputSize);
+				}
+
+				// vignette
+				MulSrc32(pDest, s_pNautilusVignette, kOutputSize); // FIXME: placeholder
+
+			}
+			break;
+
+		case 13:
+			{
+				memset32(pDest, 0, kResX*kResY);
+
+				const float discoGuys = saturatef(Rocket::getf(trackDiscoGuys));
+				const float joke = saturatef(Rocket::getf(trackCheapJoke));
+
+				if (discoGuys > 0.f)
+				{
+					const unsigned xStart = (kResX-(8*128))>>1;
+					const unsigned yOffs = ((kResY-128)>>1) + 16;
+					for (int iGuy = 0; iGuy < 8; ++iGuy)
+					{
+						// this gives me the opportunity to for ex. fade them in in order
+						const float appearance = saturatef(Rocket::getf(trackDiscoGuysAppearance[iGuy]));
+
+						BlitSrc32A(pDest + xStart + iGuy*128 + yOffs*kResX, s_pDiscoGuys[iGuy], kResX, 128, 128, discoGuys*smootherstepf(0.f, 1.f, appearance));
+
+						if (discoGuys < 1.f)
+						{
+							uint32_t *pStrip = pDest + yOffs*kResX;
+							HorizontalBoxBlur32(pStrip, pStrip, kResX, 128, BoxBlurScale((1.f-discoGuys)*k2PI*kGoldenAngle));
+						}
+					}
+
+					// (semi-)full credits
+//					BlitAdd32A(pDest + (((kResX-1000)/2)-1) + (yOffs+130)*kResX, s_pAreWeDone, kResX, 1000, 52, discoGuys);
+					BlitAdd32A(pDest + (((kResX-1100)/2)-1) + (yOffs+130)*kResX, s_pAreWeDone, kResX, 1100, 57, discoGuys);
+				}
+				else if (joke > 0.f)
+				{
+					// they can't 'ford no GPU
+					memset(pDest, 0, kOutputBytes);
+					BlitSrc32A(pDest + ((kResX-960)/2) + (((kResY-160 )/2)*kResX), s_pGPUJoke, kResX, 960, 160, joke);
+				}
+			}
+			break;
+
+		default:
+			FxBlitter_DrawTestPattern(pDest);
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 	}
+
+	// post fade/flash
+	switch (effect)
+	{
+	case 1:
+	case 2:
+	case 3:
+	case 6:
+	case 7:
+	case 8:
+	case 10:
+		// handled by effect/part
+		break;
+
+	default:
+		FadeFlash(pDest, fadeToBlack, fadeToWhite);
+	}
 
 	return true;
 }

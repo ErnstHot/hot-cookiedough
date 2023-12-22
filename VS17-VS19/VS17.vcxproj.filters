@@ -154,15 +154,6 @@
     <ClCompile Include="..\3rdparty\imgui-1.90\imgui_widgets.cpp">
       <Filter>/3rdparty\/3rdParty/imgui-1.90</Filter>
     </ClCompile>
-    <ClCompile Include="..\code\reaction-diffusion-v1-effect.cpp">
-      <Filter>/code\effects</Filter>
-    </ClCompile>
-    <ClCompile Include="..\code\reaction-diffusion-v1.cpp">
-      <Filter>/code\effects</Filter>
-    </ClCompile>
-    <ClCompile Include="..\code\eh-util.cpp">
-      <Filter>/code\util-lib</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\code\bilinear.h">
@@ -326,15 +317,6 @@
     </ClInclude>
     <ClInclude Include="..\3rdparty\imgui-1.90\imstb_truetype.h">
       <Filter>/3rdparty\/3rdParty/imgui-1.90</Filter>
-    </ClInclude>
-    <ClInclude Include="..\code\reaction-diffusion-v1.h">
-      <Filter>/code\effects</Filter>
-    </ClInclude>
-    <ClInclude Include="..\code\reaction-diffusion-v1-effect.h">
-      <Filter>/code\effects</Filter>
-    </ClInclude>
-    <ClInclude Include="..\code\eh-util.h">
-      <Filter>/code\util-lib</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
