@@ -348,7 +348,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR cmdLine, int nCmdShow)
 
 										ImGui::EndTable();
 
-										ImGui::Checkbox("Low FPS warning", &s_ImGuiFramerateWarning);
+										ImGui::Checkbox("Low FPS indication", &s_ImGuiFramerateWarning);
 									}
 
 									//ImGui::Text("Time:        %.3f s", audioTime);
