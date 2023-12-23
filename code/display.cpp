@@ -15,6 +15,9 @@ Display::Display() :
 
 Display::~Display()
 {
+	ImPlot::DestroyContext();
+	ImGui::DestroyContext();
+
 	SDL_DestroyTexture(m_texture);
 	SDL_DestroyRenderer(m_renderer);
 	SDL_DestroyWindow(m_window);
@@ -41,20 +44,22 @@ bool Display::Open(const std::string &title, unsigned int xRes, unsigned int yRe
 		{
 			IMGUI_CHECKVERSION();
 			ImGui::CreateContext();
+			ImPlot::CreateContext();
 			ImGuiIO& io = ImGui::GetIO(); (void)io;
 			io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 			io.ConfigWindowsMoveFromTitleBarOnly = true;
 
-			ImGuiStyle& style			= ImGui::GetStyle();
-			style.WindowPadding.x		= 4;
-			style.WindowPadding.y		= 4;
-			style.WindowRounding		= 4;
-			style.ItemSpacing.y			= 5;
-			style.ItemInnerSpacing.x	= 6;
-			style.WindowRounding		= 2;
-			style.FrameRounding			= 2;
-			style.GrabMinSize			= 10;
-			style.GrabRounding			= 2;
+			ImGuiStyle& style				= ImGui::GetStyle();
+			style.WindowPadding.x			= 4;
+			style.WindowPadding.y			= 4;
+			style.WindowRounding			= 4;
+			style.ItemSpacing.y				= 5;
+			style.ItemInnerSpacing.x		= 6;
+			style.WindowRounding			= 2;
+			style.FrameRounding				= 2;
+			style.GrabMinSize				= 10;
+			style.GrabRounding				= 2;
+			style.WindowMenuButtonPosition	= 1;
 
 			ImVec4* colors = ImGui::GetStyle().Colors;
 			colors[ImGuiCol_Text] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
@@ -97,10 +102,10 @@ bool Display::Open(const std::string &title, unsigned int xRes, unsigned int yRe
 			colors[ImGuiCol_TabUnfocusedActive] = ImVec4(0.14f, 0.14f, 0.14f, 1.00f);
 			//colors[ImGuiCol_DockingPreview] = ImVec4(0.33f, 0.67f, 0.86f, 1.00f);
 			//colors[ImGuiCol_DockingEmptyBg] = ImVec4(1.00f, 0.00f, 0.00f, 1.00f);
-			colors[ImGuiCol_PlotLines] = ImVec4(1.00f, 0.00f, 0.00f, 1.00f);
-			colors[ImGuiCol_PlotLinesHovered] = ImVec4(1.00f, 0.00f, 0.00f, 1.00f);
-			colors[ImGuiCol_PlotHistogram] = ImVec4(1.00f, 0.00f, 0.00f, 1.00f);
-			colors[ImGuiCol_PlotHistogramHovered] = ImVec4(1.00f, 0.00f, 0.00f, 1.00f);
+			colors[ImGuiCol_PlotLines] = ImVec4(0.6f, 0.6f, 0.6f, 1.00f);
+			colors[ImGuiCol_PlotLinesHovered] = ImVec4(0.7f, 0.7f, 0.7f, 1.00f);
+			colors[ImGuiCol_PlotHistogram] = ImVec4(0.6f, 0.6f, 0.6f, 1.00f);
+			colors[ImGuiCol_PlotHistogramHovered] = ImVec4(0.7f, 0.7f, 0.7f, 1.00f);
 			colors[ImGuiCol_TableHeaderBg] = ImVec4(0.00f, 0.00f, 0.00f, 0.52f);
 			colors[ImGuiCol_TableBorderStrong] = ImVec4(0.00f, 0.00f, 0.00f, 0.52f);
 			colors[ImGuiCol_TableBorderLight] = ImVec4(0.28f, 0.28f, 0.28f, 0.29f);

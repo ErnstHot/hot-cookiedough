@@ -48,6 +48,8 @@ void SetLastError(const std::string &description);
 
 // ImGui
 #include "../3rdparty/imgui-1.90/imgui.h"
+#include "../3rdparty/implot-0.16/implot.h"
+
 bool ImGuiIsVisible();
 
 // basic utilities (memory, graphics, ISSE et cetera)

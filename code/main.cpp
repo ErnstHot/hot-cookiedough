@@ -92,6 +92,7 @@
 #include "gamepad.h"
 #include "tests.h"
 
+
 // filters & blitters
 #include "polar.h"
 #include "fx-blitter.h"
@@ -139,8 +140,45 @@ static const std::string GetMacWorkDir()
 
 // -----------------------------
 
-static bool s_showImGui = false;
-static bool s_ImGuiFramerateWarning = false; // Should ImGui show framerate in red if below 60 fps?
+static bool s_showImGui = true;					// 
+static bool s_ImGuiFramerateWarning = false;	// Should ImGui show framerate in red if below 60 fps?
+
+// utility structure for realtime plot
+struct ScrollingBuffer
+{
+	int MaxSize;
+	int Offset;
+	ImVector<ImVec2> Data;
+
+	ScrollingBuffer(int max_size = 2000)
+	{
+		MaxSize = max_size;
+		Offset = 0;
+		Data.reserve(MaxSize);
+	}
+
+	void AddPoint(float x, float y)
+	{
+		if (Data.size() < MaxSize)
+			Data.push_back(ImVec2(x, y));
+		else
+		{
+			Data[Offset] = ImVec2(x, y);
+			Offset = (Offset + 1) % MaxSize;
+		}
+	}
+
+	void Erase()
+	{
+		if (Data.size() > 0)
+		{
+			Data.shrink(0);
+			Offset = 0;
+		}
+	}
+};
+
+static ScrollingBuffer s_frameTimeHistory;
 
 bool ImGuiIsVisible()
 {
@@ -293,6 +331,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR cmdLine, int nCmdShow)
 						newTime = timer.Get();
 						const float delta = newTime-oldTime; // base delta on sys. time
 						
+						s_frameTimeHistory.AddPoint(newTime, 1000.0f * delta);
+
 						if (ImGui::IsKeyReleased(ImGui::GetKeyIndex(ImGuiKey_F10)) && !kFullScreen)
 							s_showImGui = !s_showImGui;
 
@@ -311,18 +351,48 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR cmdLine, int nCmdShow)
 
 								if (ImGui::CollapsingHeader("Info", ImGuiTreeNodeFlags_DefaultOpen))
 								{
+									if (ImPlot::BeginPlot("Frame time (ms)", ImVec2(-1, 120), ImPlotFlags_NoLegend))
+									{	
+										const ImPlotAxisFlags xFlags = ImPlotAxisFlags_NoTickLabels
+											| ImPlotAxisFlags_NoTickMarks
+											| ImPlotAxisFlags_NoGridLines;
+
+										const ImPlotAxisFlags yFlags = ImPlotAxisFlags_NoTickLabels
+											| ImPlotAxisFlags_NoTickMarks;
+
+										ImPlot::SetupAxes(nullptr, nullptr, xFlags, yFlags);
+
+										const float history = 10.0f;
+										const float yVal[] = { 1000.0f / 60.0f };
+
+										ImPlot::SetupAxisLimits(ImAxis_X1, newTime - history, newTime, ImGuiCond_Always);
+										ImPlot::SetupAxisLimits(ImAxis_Y1, 0, 1000.0f / 30.0f);
+										ImPlot::SetupAxisFormat(ImAxis_X1, "%.1f s");
+										ImPlot::SetupAxisFormat(ImAxis_Y1, "%.1f ms");
+
+										ImPlot::SetNextLineStyle(ImColor(0.125f, 0.75f, 0.5f, 0.8f), 1.5f);
+										ImPlot::PlotLine("Frame time", &s_frameTimeHistory.Data[0].x, &s_frameTimeHistory.Data[0].y, s_frameTimeHistory.Data.size(), 0, s_frameTimeHistory.Offset, 2 * sizeof(float));
+										
+										ImPlot::SetNextLineStyle(ImColor(0.8f, 0.0f, 0.0f, 0.75f), 1.5f);
+										ImPlot::PlotInfLines("60 fps marker", yVal, 1, ImPlotInfLinesFlags_Horizontal);
+
+										ImPlot::EndPlot();
+									}
+
+									ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(8, 0));
+
 									// TODO: Lowpass filter values to make them less jittery. Or update less frequently.
-									if (ImGui::BeginTable("InfoTable", 2))
+									if (ImGui::BeginTable("InfoTable", 2, ImGuiTableFlags_SizingFixedFit))
 									{
 										ImGui::TableNextRow();
 										ImGui::TableNextColumn();
-										ImGui::Text("Time");
+										ImGui::Text("Time:");
 										ImGui::TableNextColumn();
-										ImGui::Text("%.3f s", audioTime);
+										ImGui::Text("%.2f s", audioTime);
 
 										ImGui::TableNextRow();
 										ImGui::TableNextColumn();
-										ImGui::Text("Frame rate");
+										ImGui::Text("Frame rate:");
 										ImGui::TableNextColumn();
 
 										const float fps = 1.0f / delta;
@@ -332,28 +402,25 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR cmdLine, int nCmdShow)
 											ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "%.1f fps", fps);
 											ImGui::TableNextRow();
 											ImGui::TableNextColumn();
-											ImGui::Text("Frame time");
+											ImGui::Text("Frame time:");
 											ImGui::TableNextColumn();
-											ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "%.3f ms", 1000.0f * delta);
+											ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "%.1f ms", 1000.0f * delta);
 										}
 										else
 										{
 											ImGui::Text("%.1f fps", fps);
 											ImGui::TableNextRow();
 											ImGui::TableNextColumn();
-											ImGui::Text("Frame time");
+											ImGui::Text("Frame time:");
 											ImGui::TableNextColumn();
-											ImGui::Text("%.3f ms", 1000.0f * delta);
+											ImGui::Text("%.1f ms", 1000.0f * delta);
 										}
 
 										ImGui::EndTable();
+										ImGui::PopStyleVar();
 
 										ImGui::Checkbox("Low FPS indication", &s_ImGuiFramerateWarning);
 									}
-
-									//ImGui::Text("Time:        %.3f s", audioTime);
-									//ImGui::Text("FPS:         %.1f", 1.0f / delta);
-									//ImGui::Text("Frame time:  %.3f ms", 1000.0f * delta);
 								}
 							}
 						}
