@@ -26,6 +26,9 @@
     <ClCompile Include="..\3rdparty\imgui-1.90\imgui_impl_sdlrenderer2.cpp" />
     <ClCompile Include="..\3rdparty\imgui-1.90\imgui_tables.cpp" />
     <ClCompile Include="..\3rdparty\imgui-1.90\imgui_widgets.cpp" />
+    <ClCompile Include="..\3rdparty\implot-0.16\implot.cpp" />
+    <ClCompile Include="..\3rdparty\implot-0.16\implot_demo.cpp" />
+    <ClCompile Include="..\3rdparty\implot-0.16\implot_items.cpp" />
     <ClCompile Include="..\code\eh-util.cpp" />
     <ClCompile Include="..\code\reaction-diffusion-v1-effect.cpp" />
     <ClCompile Include="..\code\reaction-diffusion-v1.cpp" />
@@ -92,6 +95,8 @@
     <ClInclude Include="..\3rdparty\imgui-1.90\imstb_rectpack.h" />
     <ClInclude Include="..\3rdparty\imgui-1.90\imstb_textedit.h" />
     <ClInclude Include="..\3rdparty\imgui-1.90\imstb_truetype.h" />
+    <ClInclude Include="..\3rdparty\implot-0.16\implot.h" />
+    <ClInclude Include="..\3rdparty\implot-0.16\implot_internal.h" />
     <ClInclude Include="..\code\eh-util.h" />
     <ClInclude Include="..\code\reaction-diffusion-v1-effect.h" />
     <ClInclude Include="..\code\reaction-diffusion-v1.h" />
