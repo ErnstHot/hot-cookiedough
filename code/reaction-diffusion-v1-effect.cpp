@@ -40,9 +40,11 @@ static std::string getCurrentTimeAndDate()
 	return std::format("{:%Y-%m-%d %X}", time);
 }
 
-static void imGui()
+
+static void showGui()
 {
-	if (ImGuiIsVisible())
+#if defined(GUI_ENABLED)
+	if (Gui_Is_Visible())
 	{
 		if (ImGui::CollapsingHeader("Reaction diffusion V1", ImGuiTreeNodeFlags_DefaultOpen))
 		{
@@ -91,6 +93,7 @@ static void imGui()
 				ImGui::SliderFloat("Gain", &s_gain, -1.0f, 1.0f, "%.3f");
 		}
 	}
+#endif // GUI_ENABLED
 }
 
 static void clearBuffers()
@@ -116,11 +119,11 @@ static void clearBuffers()
 
 void Reaction_Diffusion_V1_Effect_Draw(uint32_t* pDest, float time, float delta)
 {
+	clearBuffers();
+	showGui();
+
 	const float shape = s_shape * 0.5f + 0.5f;
 	const float gain = expf(s_gain * 4.0f);
-
-	clearBuffers();
-	imGui();
 
 	if (s_updateBuffers)
 		REDI_V1_Buffers_Update(s_pBuffers, s_pKernel, s_pParameters, true);

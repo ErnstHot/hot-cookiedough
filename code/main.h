@@ -40,22 +40,30 @@ constexpr size_t kOutputSize = kResX*kResY;
 constexpr size_t kOutputBytes = kOutputSize*sizeof(uint32_t);
 constexpr float kAspect = (float)kResY/kResX;
 constexpr float kOneOverAspect = 1.f/kAspect;
-
 constexpr bool kFullScreen = false;
+
+// GUI
+#define GUI_ENABLED								// comment out to remove gui from project
+constexpr bool kGui_VisibleByDefault = true;
+
+#if defined(GUI_ENABLED)
+	#include "../3rdparty/imgui-1.90/imgui.h"
+	#include "../3rdparty/implot-0.16/implot.h"
+	constexpr bool kGuiEnabled = !kFullScreen;
+#else
+	constexpr bool kGuiEnabled = false;
+#endif // GUI_ENABLED
+
+#include "gui.h"
 
 // set description on failure (reported on shutdown)
 void SetLastError(const std::string &description);
-
-// ImGui
-#include "../3rdparty/imgui-1.90/imgui.h"
-#include "../3rdparty/implot-0.16/implot.h"
-
-bool ImGuiIsVisible();
 
 // basic utilities (memory, graphics, ISSE et cetera)
 #include "util.h"
 
 // (few) shared resources
 #include "shared-resources.h"
+
 
 #endif // _MAIN_H_

@@ -172,6 +172,9 @@
     <ClCompile Include="..\3rdparty\implot-0.16\implot_items.cpp">
       <Filter>/3rdparty\/3rdParty/implot-0.16</Filter>
     </ClCompile>
+    <ClCompile Include="..\code\gui.cpp">
+      <Filter>/code</Filter>
+    </ClCompile>
     <ClCompile Include="..\3rdparty\implot-0.16\implot_demo.cpp">
       <Filter>/3rdparty\/3rdParty/implot-0.16</Filter>
     </ClCompile>
@@ -353,6 +356,9 @@
     </ClInclude>
     <ClInclude Include="..\3rdparty\implot-0.16\implot_internal.h">
       <Filter>/3rdparty\/3rdParty/implot-0.16</Filter>
+    </ClInclude>
+    <ClInclude Include="..\code\gui.h">
+      <Filter>/code</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

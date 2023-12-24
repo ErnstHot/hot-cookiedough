@@ -29,10 +29,13 @@
 // - OpenMP
 // - To circle around making a grown up OSX application: https://github.com/SCG82/macdylibbundler
 
-// third party: ImGui
-// - F10 to show/hide
+// third party: ImGui and ImPlot
+// - F2 to show/hide
+// - Look at gui.h, gui.cpp and the GUI section of main.h
+// - Is only included if GUI_ENABLED is defined, in case you want to remove it entirely from a final release
+//   This means that you should probably also surround your GUI code with #if defined(GUI_ENABLED) / #endif clauses
+// - Gui_Is_Visible() will tell you if you should be drawing ImGui widgets
 // - Currently only enabled in windowed mode
-// - ImGuiIsVisible() will tell you if you should be drawing ImGui widgets
 // - Currently included in main.h, so should be available everywhere you might need it. I think.
 
 // compiler settings for Visual C++:
@@ -83,6 +86,8 @@
 
 #include <float.h>
 #include "../3rdparty/SDL2-2.28.5/include/SDL.h"
+#include "../3rdparty/imgui-1.90/imgui_impl_sdl2.h"
+#include "../3rdparty/imgui-1.90/imgui_impl_sdlrenderer2.h"
 
 #include "display.h"
 #include "timer.h"
@@ -107,7 +112,7 @@ static const char *kStream = "assets/audio/comatron - to the moon - final.wav";
 constexpr bool kSilent = true; // when you're working on anything else than synchronization
 
 // enable this to receive derogatory comments
- #define DISPLAY_AVG_FPS
+//#define DISPLAY_AVG_FPS
 
 /*
 	look for SYNC_PLAYER in the header to switch between editor and replay (release) mode
@@ -140,51 +145,6 @@ static const std::string GetMacWorkDir()
 
 // -----------------------------
 
-static bool s_showImGui = true;					// 
-static bool s_ImGuiFramerateWarning = false;	// Should ImGui show framerate in red if below 60 fps?
-
-// utility structure for realtime plot
-struct ScrollingBuffer
-{
-	int MaxSize;
-	int Offset;
-	ImVector<ImVec2> Data;
-
-	ScrollingBuffer(int max_size = 2000)
-	{
-		MaxSize = max_size;
-		Offset = 0;
-		Data.reserve(MaxSize);
-	}
-
-	void AddPoint(float x, float y)
-	{
-		if (Data.size() < MaxSize)
-			Data.push_back(ImVec2(x, y));
-		else
-		{
-			Data[Offset] = ImVec2(x, y);
-			Offset = (Offset + 1) % MaxSize;
-		}
-	}
-
-	void Erase()
-	{
-		if (Data.size() > 0)
-		{
-			Data.shrink(0);
-			Offset = 0;
-		}
-	}
-};
-
-static ScrollingBuffer s_frameTimeHistory;
-
-bool ImGuiIsVisible()
-{
-	return s_showImGui;
-}
-
 static std::string s_lastErr;
 
 void SetLastError(const std::string &description)
@@ -213,8 +173,7 @@ static bool HandleEvents()
 			break;
 		}
 
-		if (!kFullScreen)
-			ImGui_ImplSDL2_ProcessEvent(&event);
+		Gui_Process_Event(&event);
 	}
 
 	return true;
@@ -330,112 +289,15 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR cmdLine, int nCmdShow)
 						oldTime = newTime;
 						newTime = timer.Get();
 						const float delta = newTime-oldTime; // base delta on sys. time
-						
-						s_frameTimeHistory.AddPoint(newTime, 1000.0f * delta);
-
-						if (ImGui::IsKeyReleased(ImGui::GetKeyIndex(ImGuiKey_F10)) && !kFullScreen)
-							s_showImGui = !s_showImGui;
-
 						const float audioTime = kSilent ? newTime : Audio_Get_Pos_In_Sec();
-						
-						if (!kFullScreen)
-						{
-							ImGui_ImplSDLRenderer2_NewFrame();
-							ImGui_ImplSDL2_NewFrame();
-							
-							ImGui::NewFrame();
-							
-							if (ImGuiIsVisible())
-							{
-								ImGui::Begin("Press F10 to hide");
-
-								if (ImGui::CollapsingHeader("Info", ImGuiTreeNodeFlags_DefaultOpen))
-								{
-									if (ImPlot::BeginPlot("Frame time (ms)", ImVec2(-1, 120), ImPlotFlags_NoLegend))
-									{	
-										const ImPlotAxisFlags xFlags = ImPlotAxisFlags_NoTickLabels
-											| ImPlotAxisFlags_NoTickMarks
-											| ImPlotAxisFlags_NoGridLines;
-
-										const ImPlotAxisFlags yFlags = ImPlotAxisFlags_NoTickLabels
-											| ImPlotAxisFlags_NoTickMarks;
-
-										ImPlot::SetupAxes(nullptr, nullptr, xFlags, yFlags);
-
-										const float history = 10.0f;
-										const float yVal[] = { 1000.0f / 60.0f };
-
-										ImPlot::SetupAxisLimits(ImAxis_X1, newTime - history, newTime, ImGuiCond_Always);
-										ImPlot::SetupAxisLimits(ImAxis_Y1, 0, 1000.0f / 30.0f);
-										ImPlot::SetupAxisFormat(ImAxis_X1, "%.1f s");
-										ImPlot::SetupAxisFormat(ImAxis_Y1, "%.1f ms");
-
-										ImPlot::SetNextLineStyle(ImColor(0.125f, 0.75f, 0.5f, 0.8f), 1.5f);
-										ImPlot::PlotLine("Frame time", &s_frameTimeHistory.Data[0].x, &s_frameTimeHistory.Data[0].y, s_frameTimeHistory.Data.size(), 0, s_frameTimeHistory.Offset, 2 * sizeof(float));
-										
-										ImPlot::SetNextLineStyle(ImColor(0.8f, 0.0f, 0.0f, 0.75f), 1.5f);
-										ImPlot::PlotInfLines("60 fps marker", yVal, 1, ImPlotInfLinesFlags_Horizontal);
-
-										ImPlot::EndPlot();
-									}
-
-									ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(8, 0));
-
-									// TODO: Lowpass filter values to make them less jittery. Or update less frequently.
-									if (ImGui::BeginTable("InfoTable", 2, ImGuiTableFlags_SizingFixedFit))
-									{
-										ImGui::TableNextRow();
-										ImGui::TableNextColumn();
-										ImGui::Text("Time:");
-										ImGui::TableNextColumn();
-										ImGui::Text("%.2f s", audioTime);
-
-										ImGui::TableNextRow();
-										ImGui::TableNextColumn();
-										ImGui::Text("Frame rate:");
-										ImGui::TableNextColumn();
-
-										const float fps = 1.0f / delta;
-										
-										if (s_ImGuiFramerateWarning && fps < 60.0f) // Derogatory comments now in color.
-										{
-											ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "%.1f fps", fps);
-											ImGui::TableNextRow();
-											ImGui::TableNextColumn();
-											ImGui::Text("Frame time:");
-											ImGui::TableNextColumn();
-											ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "%.1f ms", 1000.0f * delta);
-										}
-										else
-										{
-											ImGui::Text("%.1f fps", fps);
-											ImGui::TableNextRow();
-											ImGui::TableNextColumn();
-											ImGui::Text("Frame time:");
-											ImGui::TableNextColumn();
-											ImGui::Text("%.1f ms", 1000.0f * delta);
-										}
-
-										ImGui::EndTable();
-										ImGui::PopStyleVar();
-
-										ImGui::Checkbox("Low FPS indication", &s_ImGuiFramerateWarning);
-									}
-								}
-							}
-						}
+												
+						Gui_Begin_Draw(audioTime, newTime, delta);
 
 						Demo_Draw(pDest, audioTime, delta * 100.f);
 						//if (false == Demo_Draw(pDest, audioTime, delta * 100.f))
 						//	break; // Rocket track says we're done
 
-						if (!kFullScreen)
-						{
-							if (ImGuiIsVisible())
-								ImGui::End();
-							
-							ImGui::Render();
-						}
+						Gui_End_Draw();
 
 						display.Update(pDest);
 
