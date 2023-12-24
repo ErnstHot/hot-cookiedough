@@ -1,26 +1,18 @@
 
-// cookiedough -- gui
+// cookiedough -- gui, from Purple with love
 
 #pragma once
 
 #include "../3rdparty/SDL2-2.28.5/include/SDL.h"
 
-
-constexpr bool kGui_InfoWindowDefaultOpen = true;
-
-
 bool Gui_Is_Visible();
 
-bool Gui_Create(SDL_Window* window, SDL_Renderer* renderer);
+bool Gui_Create(SDL_Window*, SDL_Renderer*);
 void Gui_Destroy();
 void Gui_Update();
-void Gui_Process_Event(const SDL_Event* event);
-
+void Gui_Process_Event(const SDL_Event*);
 void Gui_Begin_Draw(float audioTime, float runTime, float delta);
 void Gui_End_Draw();
-
-
-struct GUI_ScrollingBuffer;
 
 
 //	Example GUI funcion

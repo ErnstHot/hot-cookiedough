@@ -1,8 +1,19 @@
 #include "gui.h"
 #include "main.h"
 
-static bool s_guiIsVisible = kGui_VisibleByDefault;
-static bool s_infoWindowIsOpen = kGui_InfoWindowDefaultOpen;
+#if defined(GUI_ENABLED)
+	// Constants
+	constexpr bool		kGui_HasMenuBar				= true;
+
+	constexpr float		kWindowDefaultWidth			= 300;
+	constexpr ImVec4	kGreyTextColor				= { 0.60f, 0.60f, 0.60f, 1.00f };
+
+	constexpr ImGuiKey	kGuiKeys_ToggleShowGui		= ImGuiKey_F2;
+	constexpr ImGuiKey	kGuiKeys_ToggleShowInfo		= ImGuiKey_F3;
+
+	static bool s_guiIsVisible = kGui_VisibleByDefault;
+	static bool s_infoWindowIsOpen = kGui_InfoWindowDefaultOpen;
+#endif
 
 bool Gui_Is_Visible()
 {
@@ -13,55 +24,253 @@ bool Gui_Is_Visible()
 	return false;
 }
 
-
 #if defined (GUI_ENABLED)
 	#include "../3rdparty/imgui-1.90/imgui_internal.h"
 	#include "../3rdparty/imgui-1.90/imgui_impl_sdl2.h"
 	#include "../3rdparty/imgui-1.90/imgui_impl_sdlrenderer2.h"
 
-	constexpr float kWindowDefaultWidth = 300;
-
-	constexpr ImVec4 kGreyTextColor = { 0.60f, 0.60f, 0.60f, 1.00f };
-	constexpr ImGuiKey kGuiKeys_ToggleShowGui	= ImGuiKey_F2;
-	constexpr ImGuiKey kGuiKeys_ShowInfo		= ImGuiKey_F3;
-	//constexpr ImGuiKey kGuiKeys_CollapseAll		= ImGuiKey_F5;
-
 	// Utility structure for realtime plot
 	struct GUI_ScrollingBuffer
 	{
-		int maxSize;
-		int offset;
-		ImVector<ImVec2> data;
+	int maxSize;
+	int offset;
+	ImVector<ImVec2> data;
 
-		GUI_ScrollingBuffer(int max_size = 2000)
+	GUI_ScrollingBuffer(int max_size = 2000)
+	{
+		maxSize = max_size;
+		offset = 0;
+		data.reserve(maxSize);
+	}
+
+	void addPoint(float x, float y)
+	{
+		if (data.size() < maxSize)
+			data.push_back(ImVec2(x, y));
+		else
 		{
-			maxSize = max_size;
+			data[offset] = ImVec2(x, y);
+			offset = (offset + 1) % maxSize;
+		}
+	}
+
+	void erase()
+	{
+		if (data.size() > 0)
+		{
+			data.shrink(0);
 			offset = 0;
-			data.reserve(maxSize);
 		}
-
-		void addPoint(float x, float y)
-		{
-			if (data.size() < maxSize)
-				data.push_back(ImVec2(x, y));
-			else
-			{
-				data[offset] = ImVec2(x, y);
-				offset = (offset + 1) % maxSize;
-			}
-		}
-
-		void erase()
-		{
-			if (data.size() > 0)
-			{
-				data.shrink(0);
-				offset = 0;
-			}
-		}
+	}
 	};
 
 	static GUI_ScrollingBuffer s_frameTimeHistory;
+
+	void drawMainMenu()
+	{
+		if (ImGui::BeginMenuBar())
+		{
+			bool menuExecuteFunction = false;
+
+			if (ImGui::BeginMenu("File"))
+			{
+				menuExecuteFunction = false;
+				ImGui::MenuItem("Reset window positions", NULL, &menuExecuteFunction);
+				if (menuExecuteFunction)
+				{
+					// Do it.
+				}
+				
+				menuExecuteFunction = false;
+				ImGui::MenuItem("Reset black widow positions", NULL, &menuExecuteFunction);
+				if (menuExecuteFunction)
+				{
+					// Do it.
+				}
+				
+				static bool boo = false;
+				ImGui::MenuItem("Stuffings", NULL, &boo);
+				
+				ImGui::Separator();
+
+				menuExecuteFunction = false;
+				ImGui::MenuItem("Exit demo", "Alt+F4", &menuExecuteFunction);
+				if (menuExecuteFunction)
+				{
+					// Do it.
+				}
+
+				ImGui::EndMenu();
+			}
+
+			ImGui::EndMenuBar();
+		}
+	}
+
+	void drawInfoWindow(float runTime, float delta)
+	{
+		const float frameTimeMs = 1000.0f * delta;
+		const float frameRate = 1.0f / delta;
+
+		const float pad = 8.0f;
+		const ImGuiViewport* viewport = ImGui::GetMainViewport();
+		const ImVec2 workPos = viewport->WorkPos;
+		const ImVec2 workSize = viewport->WorkSize;
+
+		ImVec2 windowPos, windowPosPivot;
+		windowPos.x = workPos.x + workSize.x - pad;
+		windowPos.y = workPos.y + pad;
+		windowPosPivot.x = 1.0f;
+		windowPosPivot.y = 0.0f;
+
+		ImGui::SetNextWindowPos(windowPos, ImGuiCond_FirstUseEver, windowPosPivot);
+		ImGui::SetNextWindowSize(ImVec2(kWindowDefaultWidth, 0));
+
+		if (ImGui::Begin("Info", nullptr, ImGuiWindowFlags_NoFocusOnAppearing))
+		{
+			if (ImGui::CollapsingHeader("Frame time plot", ImGuiTreeNodeFlags_DefaultOpen))
+			{
+				if (ImPlot::BeginPlot("Frame time", ImVec2(-1, 80), ImPlotFlags_NoLegend | ImPlotFlags_NoTitle))
+				{
+					ImPlot::SetupAxes(nullptr, nullptr,
+						ImPlotAxisFlags_NoTickLabels | ImPlotAxisFlags_NoTickMarks | ImPlotAxisFlags_NoGridLines,
+						ImPlotAxisFlags_NoTickLabels | ImPlotAxisFlags_NoTickMarks);
+
+					const float history = 10.0f; // Seconds
+					const float yVal[] = { 1000.0f / 60.0f };
+
+					ImPlot::SetupAxisLimits(ImAxis_X1, runTime - history, runTime, ImGuiCond_Always);
+					ImPlot::SetupAxisLimits(ImAxis_Y1, 0, 1000.0f / 30.0f);
+					ImPlot::SetupAxisFormat(ImAxis_X1, "%.1f s");
+					ImPlot::SetupAxisFormat(ImAxis_Y1, "%.1f ms");
+
+					ImPlot::SetNextLineStyle(ImColor(0.6f, 0.6f, 0.6f, 0.8f), 1.5f);
+					ImPlot::PlotLine("Frame time", &s_frameTimeHistory.data[0].x, &s_frameTimeHistory.data[0].y, s_frameTimeHistory.data.size(), 0, s_frameTimeHistory.offset, 2 * sizeof(float));
+
+					ImPlot::SetNextLineStyle(ImColor(0.8f, 0.0f, 0.0f, 0.75f), 1.5f);
+					ImPlot::PlotInfLines("60 fps marker", yVal, 1, ImPlotInfLinesFlags_Horizontal);
+
+					ImPlot::EndPlot();
+				}
+			}
+
+			const float smoothingCoeffA = 0.995f;
+			const float smoothingCoeffB = 1.0f - smoothingCoeffA;
+
+			static float s_minFrameTimeMs = FLT_MAX;
+			static float s_maxFrameTimeMs = FLT_MIN;
+			static float s_minFrameRate = FLT_MAX;
+			static float s_maxFrameRate = FLT_MIN;
+			static float s_lastFrameRate = 60.0f;
+			static float s_lastFrameTimeMs = 1.0f / 60.0f;
+			static size_t s_framesDropped = 0;
+
+			if (ImGui::CollapsingHeader("Frame stats", ImGuiTreeNodeFlags_DefaultOpen))
+			{
+				const ImVec4 frameRateWarnColor = ImVec4(0.90f, 0.20f, 0.20f, 1.00f);
+				const char* frameRateFormat = "%.1f";
+				const char* frameTimeFormat = "%.2f";
+
+				ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(8, 0));
+
+				if (ImGui::BeginTable("MinMaxAvgTable", 4, ImGuiTableFlags_SizingStretchProp))
+				{
+					if (frameRate < 60.0)
+						s_framesDropped++;
+
+					s_minFrameTimeMs = s_minFrameTimeMs < frameTimeMs ? s_minFrameTimeMs : frameTimeMs;
+					s_maxFrameTimeMs = s_maxFrameTimeMs > frameTimeMs ? s_maxFrameTimeMs : frameTimeMs;
+					s_minFrameRate = s_minFrameRate < frameRate ? s_minFrameRate : frameRate;
+					s_maxFrameRate = s_maxFrameRate > frameRate ? s_maxFrameRate : frameRate;
+
+					// Quick and dirty smoothing
+					s_lastFrameTimeMs = smoothingCoeffA * s_lastFrameTimeMs + smoothingCoeffB * frameTimeMs;
+					s_lastFrameRate = smoothingCoeffA * s_lastFrameRate + smoothingCoeffB * frameRate;
+
+					ImGui::TableNextRow();
+					ImGui::TableSetupColumn("", 0, 0.4f);
+					ImGui::TableNextColumn();
+					ImGui::Text("");
+
+					ImGui::TableSetupColumn("Avg.", 0, 0.2f);
+					ImGui::TableNextColumn();
+					ImGui::TextColored(kGreyTextColor, "Avg.");
+
+					ImGui::TableSetupColumn("Min.", 0, 0.2f);
+					ImGui::TableNextColumn();
+					ImGui::TextColored(kGreyTextColor, "Min");
+
+					ImGui::TableSetupColumn("Max.", 0, 0.2f);
+					ImGui::TableNextColumn();
+					ImGui::TextColored(kGreyTextColor, "Max");
+
+					ImGui::TableNextRow();
+					ImGui::TableNextColumn();
+					ImGui::TextColored(kGreyTextColor, "Frame rate");
+					ImGui::TableNextColumn();
+					ImGui::Text(frameRateFormat, s_lastFrameRate);
+					ImGui::TableNextColumn();
+
+					if (s_framesDropped > 0)
+						ImGui::TextColored(frameRateWarnColor, frameRateFormat, s_minFrameRate);
+					else
+						ImGui::Text(frameRateFormat, s_minFrameRate);
+
+					ImGui::TableNextColumn();
+					ImGui::Text(frameRateFormat, s_maxFrameRate);
+
+					ImGui::TableNextRow();
+					ImGui::TableNextColumn();
+					ImGui::TextColored(kGreyTextColor, "Frame time (ms)");
+					ImGui::TableNextColumn();
+					ImGui::Text(frameTimeFormat, s_lastFrameTimeMs);
+					ImGui::TableNextColumn();
+					ImGui::Text(frameTimeFormat, s_minFrameTimeMs);
+
+
+					ImGui::TableNextColumn();
+					if (s_framesDropped > 0)
+						ImGui::TextColored(frameRateWarnColor, frameTimeFormat, s_maxFrameTimeMs);
+					else
+						ImGui::Text(frameTimeFormat, s_maxFrameTimeMs);
+
+					ImGui::EndTable();
+				}
+
+				if (ImGui::BeginTable("FramesDroppedTable", 4, ImGuiTableFlags_SizingStretchProp))
+				{
+					ImGui::TableNextRow();
+					ImGui::TableSetupColumn("", 0, 0.4f);
+					ImGui::TableNextColumn();
+					ImGui::TextColored(kGreyTextColor, "Frames dropped");
+
+					ImGui::TableSetupColumn("", 0, 0.2f);
+					ImGui::TableNextColumn();
+					ImGui::Text("%d", s_framesDropped);
+
+					ImGui::TableSetupColumn("", 0, 0.2f);
+					ImGui::TableNextColumn();
+
+					ImGui::TableSetupColumn("", 0, 0.2f);
+					ImGui::TableNextColumn();
+					if (ImGui::Button("Reset"))
+					{
+						s_minFrameTimeMs = FLT_MAX;
+						s_maxFrameTimeMs = FLT_MIN;
+						s_minFrameRate = FLT_MAX;
+						s_maxFrameRate = FLT_MIN;
+						s_lastFrameRate = frameRate;
+						s_lastFrameTimeMs = frameTimeMs;
+						s_framesDropped = 0;
+					}
+					ImGui::EndTable();
+				}
+				ImGui::PopStyleVar();
+			}
+		}
+		ImGui::End();
+	}
+
 #endif // GUI_ENABLED
 
 
@@ -75,23 +284,28 @@ bool Gui_Create(SDL_Window* window, SDL_Renderer* renderer)
 		ImPlot::CreateContext();
 
 		ImGuiIO& io = ImGui::GetIO();
-		io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+		
+		// Disabled because you easily end up in a situation where pressing Escape seems reasonable
+		// ...and then you exit the demo :(
+		// TODO: Flag to switch the key to exit the demo to something else, for development?
+		//io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+
 		io.ConfigWindowsMoveFromTitleBarOnly = true;
 		io.Fonts->AddFontFromFileTTF("dev-assets/Roboto-Medium.ttf", 14.0f);
 
 		ImGuiStyle& style = ImGui::GetStyle();
-		style.WindowPadding.x					= 8;
-		style.WindowPadding.y					= 8;
-		style.FramePadding.x					= 8;
-		style.FramePadding.y					= 2;
-		style.ItemSpacing.y						= 6;
-		style.ItemInnerSpacing.x				= 6;
-		style.GrabMinSize						= 10;
-		style.WindowMenuButtonPosition			= 1;
-		style.WindowRounding					= 2;
-		style.PopupRounding						= 2;
-		style.FrameRounding						= 1;
-		style.GrabRounding						= 1;
+		style.WindowPadding.x = 8;
+		style.WindowPadding.y = 8;
+		style.FramePadding.x = 8;
+		style.FramePadding.y = 2;
+		style.ItemSpacing.y = 6;
+		style.ItemInnerSpacing.x = 6;
+		style.GrabMinSize = 10;
+		style.WindowMenuButtonPosition = 1;
+		style.WindowRounding = 2;
+		style.PopupRounding = 2;
+		style.FrameRounding = 1;
+		style.GrabRounding = 1;
 
 		ImVec4* colors = ImGui::GetStyle().Colors;
 		colors[ImGuiCol_Border] = ImVec4(0.18f, 0.18f, 0.18f, 0.28f);
@@ -149,17 +363,17 @@ bool Gui_Create(SDL_Window* window, SDL_Renderer* renderer)
 		colors[ImGuiCol_WindowBg] = ImVec4(0.07f, 0.07f, 0.07f, 1.00f);
 
 		ImPlotStyle& ipStyle = ImPlot::GetStyle();
-		ipStyle.PlotPadding.x					= 0;
-		ipStyle.PlotPadding.y					= 0;
-		ipStyle.LabelPadding.y					= 4;
-		ipStyle.MousePosPadding.x				= 4;
-		ipStyle.MousePosPadding.y				= 4;
+		ipStyle.PlotPadding.x = 0;
+		ipStyle.PlotPadding.y = 0;
+		ipStyle.LabelPadding.y = 4;
+		ipStyle.MousePosPadding.x = 4;
+		ipStyle.MousePosPadding.y = 4;
 
-		ImVec4* ipColors = ImPlot::GetStyle().Colors;
-		ipColors[ImPlotCol_PlotBorder]			= ImVec4(1.00f, 1.00f, 1.00f, 0.05f);
-		ipColors[ImPlotCol_PlotBg]				= ImVec4(0.10f, 0.10f, 0.10f, 1.00f);
-		ipColors[ImPlotCol_AxisGrid]			= ImVec4(1.00f, 1.00f, 1.00f, 0.10f);
-		ipColors[ImPlotCol_FrameBg]				= ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
+		colors = ImPlot::GetStyle().Colors;
+		colors[ImPlotCol_PlotBorder] = ImVec4(1.00f, 1.00f, 1.00f, 0.05f);
+		colors[ImPlotCol_PlotBg] = ImVec4(0.10f, 0.10f, 0.10f, 1.00f);
+		colors[ImPlotCol_AxisGrid] = ImVec4(1.00f, 1.00f, 1.00f, 0.10f);
+		colors[ImPlotCol_FrameBg] = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
 
 		if (!ImGui_ImplSDL2_InitForSDLRenderer(window, renderer))
 			return false;
@@ -215,176 +429,19 @@ void Gui_Begin_Draw(float audioTime, float runTime, float delta)
 
 		s_frameTimeHistory.addPoint(runTime, deltaMs);
 
-		const ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoCollapse;
-
 		if (s_infoWindowIsOpen)
-		{
-			const float pad = 8.0f;
-			const ImGuiViewport* viewport = ImGui::GetMainViewport();
-			const ImVec2 workPos = viewport->WorkPos;
-			const ImVec2 workSize = viewport->WorkSize;
-			
-			ImVec2 windowPos, windowPosPivot;
-			windowPos.x = workPos.x + workSize.x - pad;
-			windowPos.y = workPos.y + pad;
-			windowPosPivot.x = 1.0f;
-			windowPosPivot.y = 0.0f;
-
-			ImGui::SetNextWindowPos(windowPos, ImGuiCond_FirstUseEver, windowPosPivot);
-			ImGui::SetNextWindowSize(ImVec2(kWindowDefaultWidth, 0));
-
-			if (ImGui::Begin("Info", nullptr, windowFlags))
-			{
-				if (ImGui::CollapsingHeader("Frame time plot", ImGuiTreeNodeFlags_DefaultOpen))
-				{
-					if (ImPlot::BeginPlot("Frame time", ImVec2(-1, 80), ImPlotFlags_NoLegend | ImPlotFlags_NoTitle))
-					{
-						ImPlot::SetupAxes(nullptr, nullptr,
-							ImPlotAxisFlags_NoTickLabels | ImPlotAxisFlags_NoTickMarks | ImPlotAxisFlags_NoGridLines,
-							ImPlotAxisFlags_NoTickLabels | ImPlotAxisFlags_NoTickMarks);
-
-						const float history = 10.0f; // Seconds
-						const float yVal[] = { 1000.0f / 60.0f };
-
-						ImPlot::SetupAxisLimits(ImAxis_X1, runTime - history, runTime, ImGuiCond_Always);
-						ImPlot::SetupAxisLimits(ImAxis_Y1, 0, 1000.0f / 30.0f);
-						ImPlot::SetupAxisFormat(ImAxis_X1, "%.1f s");
-						ImPlot::SetupAxisFormat(ImAxis_Y1, "%.1f ms");
-
-						ImPlot::SetNextLineStyle(ImColor(0.6f, 0.6f, 0.6f, 0.8f), 1.5f);
-						ImPlot::PlotLine("Frame time", &s_frameTimeHistory.data[0].x, &s_frameTimeHistory.data[0].y, s_frameTimeHistory.data.size(), 0, s_frameTimeHistory.offset, 2 * sizeof(float));
-
-						ImPlot::SetNextLineStyle(ImColor(0.8f, 0.0f, 0.0f, 0.75f), 1.5f);
-						ImPlot::PlotInfLines("60 fps marker", yVal, 1, ImPlotInfLinesFlags_Horizontal);
-
-						ImPlot::EndPlot();
-					}
-				}
-
-				const float smoothingCoeffA = 0.995f;
-				const float smoothingCoeffB = 1.0f - smoothingCoeffA;
-
-				static float s_minDeltaMs = FLT_MAX;
-				static float s_maxDeltaMs = FLT_MIN;
-				static float s_minFPS = FLT_MAX;
-				static float s_maxFPS = FLT_MIN;
-				static float s_lastFps = 60.0f;
-				static float s_lastDeltaMs = 1.0f / 60.0f;
-				static size_t s_framesDropped = 0;
-
-				if (ImGui::CollapsingHeader("Frame stats", ImGuiTreeNodeFlags_DefaultOpen))
-				{
-					const float fps = 1.0f / delta;
-
-					const ImVec4 frameRateWarnColor = ImVec4(0.90f, 0.20f, 0.20f, 1.00f);
-					const char* frameRateFormat = "%.1f";
-					const char* frameTimeFormat = "%.2f";
-
-					ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(8, 0));
-
-					if (ImGui::BeginTable("InfoTable1", 4, ImGuiTableFlags_SizingStretchProp))
-					{
-						if (fps < 60.0)
-							s_framesDropped++;
-
-						s_minDeltaMs = s_minDeltaMs < deltaMs ? s_minDeltaMs : deltaMs;
-						s_maxDeltaMs = s_maxDeltaMs > deltaMs ? s_maxDeltaMs : deltaMs;
-						s_minFPS = s_minFPS < fps ? s_minFPS : fps;
-						s_maxFPS = s_maxFPS > fps ? s_maxFPS : fps;
-
-						// Quick and dirty smoothing
-						s_lastDeltaMs = smoothingCoeffA * s_lastDeltaMs + smoothingCoeffB * deltaMs;
-						s_lastFps = smoothingCoeffA * s_lastFps + smoothingCoeffB * fps;
-
-						ImGui::TableNextRow();
-						ImGui::TableSetupColumn("", 0, 0.4f);
-						ImGui::TableNextColumn();
-						ImGui::Text("");
-						
-						ImGui::TableSetupColumn("Avg.", 0, 0.2f);
-						ImGui::TableNextColumn();
-						ImGui::TextColored(kGreyTextColor, "Avg.");
-
-						ImGui::TableSetupColumn("Min.", 0, 0.2f);
-						ImGui::TableNextColumn();
-						ImGui::TextColored(kGreyTextColor, "Min");
-
-						ImGui::TableSetupColumn("Max.", 0, 0.2f);
-						ImGui::TableNextColumn();
-						ImGui::TextColored(kGreyTextColor, "Max");
-
-						ImGui::TableNextRow();
-						ImGui::TableNextColumn();
-						ImGui::TextColored(kGreyTextColor, "Frame rate");
-						ImGui::TableNextColumn();
-						ImGui::Text(frameRateFormat, s_lastFps);
-						ImGui::TableNextColumn();
-						
-						if (s_framesDropped > 0)
-							ImGui::TextColored(frameRateWarnColor, frameRateFormat, s_minFPS);
-						else
-							ImGui::Text(frameRateFormat, s_minFPS);
-						
-						ImGui::TableNextColumn();
-						ImGui::Text(frameRateFormat, s_maxFPS);
-
-						ImGui::TableNextRow();
-						ImGui::TableNextColumn();
-						ImGui::TextColored(kGreyTextColor, "Frame time (ms)");
-						ImGui::TableNextColumn();
-						ImGui::Text(frameTimeFormat, s_lastDeltaMs);
-						ImGui::TableNextColumn();
-						ImGui::Text(frameTimeFormat, s_minDeltaMs);
-
-
-						ImGui::TableNextColumn();
-						if (s_framesDropped > 0)
-							ImGui::TextColored(frameRateWarnColor, frameTimeFormat, s_maxDeltaMs);
-						else
-							ImGui::Text(frameTimeFormat, s_maxDeltaMs);
-
-						ImGui::EndTable();
-					}
-
-					if (ImGui::BeginTable("InfoTable2", 4, ImGuiTableFlags_SizingStretchProp))
-					{
-						ImGui::TableNextRow();
-						ImGui::TableSetupColumn("", 0, 0.4f);
-						ImGui::TableNextColumn();
-						ImGui::TextColored(kGreyTextColor, "Frames dropped");
-
-						ImGui::TableSetupColumn("", 0, 0.2f);
-						ImGui::TableNextColumn();
-						ImGui::Text("%d", s_framesDropped);
-
-						ImGui::TableSetupColumn("", 0, 0.2f);
-						ImGui::TableNextColumn();
-
-						ImGui::TableSetupColumn("", 0, 0.2f);
-						ImGui::TableNextColumn();
-						if (ImGui::Button("Reset"))
-						{
-							s_minDeltaMs = FLT_MAX;
-							s_maxDeltaMs = FLT_MIN;
-							s_minFPS = FLT_MAX;
-							s_maxFPS = FLT_MIN;
-							s_lastFps = fps;
-							s_lastDeltaMs = deltaMs;
-							s_framesDropped = 0;
-						}
-						ImGui::EndTable();
-					}
-					ImGui::PopStyleVar();
-				}
-			}
-			ImGui::End();
-		}
+			drawInfoWindow(runTime, delta);
 
 		if (Gui_Is_Visible())
 		{
 			ImGui::SetNextWindowPos(ImVec2(4, 4), ImGuiCond_FirstUseEver);
-			ImGui::SetNextWindowSize(ImVec2(kWindowDefaultWidth, 0));
-			ImGui::Begin("GUI", nullptr, windowFlags);
+			ImGui::SetNextWindowSize(ImVec2(kWindowDefaultWidth, 0), ImGuiCond_FirstUseEver);
+
+			ImGui::Begin("GUI", nullptr, ImGuiWindowFlags_NoCollapse
+				| (kGui_HasMenuBar ? ImGuiWindowFlags_MenuBar : 0));
+
+			if (kGui_HasMenuBar)
+				drawMainMenu();
 		}
 	}
 #endif // GUI_ENABLED
@@ -403,7 +460,7 @@ void Gui_End_Draw()
 		if (ImGui::IsKeyReleased(ImGui::GetKeyIndex(kGuiKeys_ToggleShowGui)))
 			s_guiIsVisible = !s_guiIsVisible;
 
-		if (ImGui::IsKeyReleased(ImGui::GetKeyIndex(kGuiKeys_ShowInfo)))
+		if (ImGui::IsKeyReleased(ImGui::GetKeyIndex(kGuiKeys_ToggleShowInfo)))
 			s_infoWindowIsOpen = !s_infoWindowIsOpen;
 
 		//if (ImGui::IsKeyReleased(ImGui::GetKeyIndex(kGuiKeys_CollapseAll)))

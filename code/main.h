@@ -43,13 +43,14 @@ constexpr float kOneOverAspect = 1.f/kAspect;
 constexpr bool kFullScreen = false;
 
 // GUI
-#define GUI_ENABLED								// comment out to remove gui from project
-constexpr bool kGui_VisibleByDefault = true;
+#define GUI_ENABLED // comment out to remove gui from project
+constexpr bool kGui_VisibleByDefault = false;
+constexpr bool kGui_InfoWindowDefaultOpen = false;
 
 #if defined(GUI_ENABLED)
 	#include "../3rdparty/imgui-1.90/imgui.h"
 	#include "../3rdparty/implot-0.16/implot.h"
-	constexpr bool kGuiEnabled = !kFullScreen;
+	constexpr bool kGuiEnabled = !kFullScreen; // disables GUI in fullscreen mode
 #else
 	constexpr bool kGuiEnabled = false;
 #endif // GUI_ENABLED
