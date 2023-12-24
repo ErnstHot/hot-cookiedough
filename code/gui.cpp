@@ -1,6 +1,18 @@
 #include "gui.h"
 #include "main.h"
 
+static bool s_guiIsVisible = kGui_VisibleByDefault;
+static bool s_infoWindowIsOpen = kGui_InfoWindowDefaultOpen;
+
+bool Gui_Is_Visible()
+{
+#if defined(GUI_ENABLED)
+	return s_guiIsVisible && kGuiEnabled;
+#endif // GUI_ENABLED
+
+	return false;
+}
+
 
 #if defined (GUI_ENABLED)
 	#include "../3rdparty/imgui-1.90/imgui_internal.h"
@@ -17,53 +29,40 @@
 	// Utility structure for realtime plot
 	struct GUI_ScrollingBuffer
 	{
-		int MaxSize;
-		int Offset;
-		ImVector<ImVec2> Data;
+		int maxSize;
+		int offset;
+		ImVector<ImVec2> data;
 
 		GUI_ScrollingBuffer(int max_size = 2000)
 		{
-			MaxSize = max_size;
-			Offset = 0;
-			Data.reserve(MaxSize);
+			maxSize = max_size;
+			offset = 0;
+			data.reserve(maxSize);
 		}
 
-		void AddPoint(float x, float y)
+		void addPoint(float x, float y)
 		{
-			if (Data.size() < MaxSize)
-				Data.push_back(ImVec2(x, y));
+			if (data.size() < maxSize)
+				data.push_back(ImVec2(x, y));
 			else
 			{
-				Data[Offset] = ImVec2(x, y);
-				Offset = (Offset + 1) % MaxSize;
+				data[offset] = ImVec2(x, y);
+				offset = (offset + 1) % maxSize;
 			}
 		}
 
-		void Erase()
+		void erase()
 		{
-			if (Data.size() > 0)
+			if (data.size() > 0)
 			{
-				Data.shrink(0);
-				Offset = 0;
+				data.shrink(0);
+				offset = 0;
 			}
 		}
 	};
 
 	static GUI_ScrollingBuffer s_frameTimeHistory;
 #endif // GUI_ENABLED
-
-static bool s_guiIsVisible			= kGui_VisibleByDefault;
-static bool s_InfoWindowIsOpen		= kGui_InfoWindowDefaultOpen;
-
-
-bool Gui_Is_Visible()
-{
-#if defined(GUI_ENABLED)
-	return s_guiIsVisible && kGuiEnabled;
-#endif // GUI_ENABLED
-
-	return false;
-}
 
 
 bool Gui_Create(SDL_Window* window, SDL_Renderer* renderer)
@@ -75,88 +74,86 @@ bool Gui_Create(SDL_Window* window, SDL_Renderer* renderer)
 		ImGui::CreateContext();
 		ImPlot::CreateContext();
 
-		ImGuiIO& io = ImGui::GetIO(); (void)io;
+		ImGuiIO& io = ImGui::GetIO();
 		io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 		io.ConfigWindowsMoveFromTitleBarOnly = true;
-		io.Fonts->AddFontFromFileTTF("devassets/Roboto-Medium.ttf", 14.0f);
+		io.Fonts->AddFontFromFileTTF("dev-assets/Roboto-Medium.ttf", 14.0f);
 
 		ImGuiStyle& style = ImGui::GetStyle();
-		style.WindowPadding.x = 8;
-		style.WindowPadding.y = 8;
-		style.WindowRounding = 4;
-		style.FramePadding.x = 8;
-		style.FramePadding.y = 2;
-		style.ItemSpacing.y = 6;
-		style.ItemInnerSpacing.x = 6;
-		style.WindowRounding = 4;
-		style.FrameRounding = 2;
-		style.GrabMinSize = 10;
-		style.GrabRounding = 2;
-		style.WindowMenuButtonPosition = 1;
+		style.WindowPadding.x					= 8;
+		style.WindowPadding.y					= 8;
+		style.FramePadding.x					= 8;
+		style.FramePadding.y					= 2;
+		style.ItemSpacing.y						= 6;
+		style.ItemInnerSpacing.x				= 6;
+		style.GrabMinSize						= 10;
+		style.WindowMenuButtonPosition			= 1;
+		style.WindowRounding					= 2;
+		style.PopupRounding						= 2;
+		style.FrameRounding						= 1;
+		style.GrabRounding						= 1;
 
 		ImVec4* colors = ImGui::GetStyle().Colors;
-		colors[ImGuiCol_Text]					= ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
-		colors[ImGuiCol_TextDisabled]			= ImVec4(0.50f, 0.50f, 0.50f, 1.00f);
-		colors[ImGuiCol_WindowBg]				= ImVec4(0.08f, 0.08f, 0.08f, 1.00f);
-		colors[ImGuiCol_ChildBg]				= ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
-		colors[ImGuiCol_PopupBg]				= ImVec4(0.19f, 0.19f, 0.19f, 0.92f);
-		colors[ImGuiCol_Border]					= ImVec4(0.19f, 0.19f, 0.19f, 0.29f);
-		colors[ImGuiCol_BorderShadow]			= ImVec4(0.00f, 0.00f, 0.00f, 0.24f);
-		colors[ImGuiCol_FrameBg]				= ImVec4(0.03f, 0.03f, 0.03f, 0.54f);
-		colors[ImGuiCol_FrameBgHovered]			= ImVec4(0.19f, 0.19f, 0.19f, 0.54f);
-		colors[ImGuiCol_FrameBgActive]			= ImVec4(0.20f, 0.22f, 0.23f, 1.00f);
-		colors[ImGuiCol_TitleBg]				= ImVec4(0.00f, 0.00f, 0.00f, 1.00f);
-		colors[ImGuiCol_TitleBgActive]			= ImVec4(0.06f, 0.06f, 0.06f, 1.00f);
-		colors[ImGuiCol_TitleBgCollapsed]		= ImVec4(0.00f, 0.00f, 0.00f, 1.00f);
-		colors[ImGuiCol_MenuBarBg]				= ImVec4(0.14f, 0.14f, 0.14f, 1.00f);
-		colors[ImGuiCol_ScrollbarBg]			= ImVec4(0.05f, 0.05f, 0.05f, 0.54f);
-		colors[ImGuiCol_ScrollbarGrab]			= ImVec4(0.34f, 0.34f, 0.34f, 0.54f);
-		colors[ImGuiCol_ScrollbarGrabHovered]	= ImVec4(0.40f, 0.40f, 0.40f, 0.54f);
-		colors[ImGuiCol_ScrollbarGrabActive]	= ImVec4(0.56f, 0.56f, 0.56f, 0.54f);
-		colors[ImGuiCol_CheckMark]				= ImVec4(0.67f, 0.67f, 0.67f, 1.00f);
-		colors[ImGuiCol_SliderGrab]				= ImVec4(0.34f, 0.34f, 0.34f, 0.54f);
-		colors[ImGuiCol_SliderGrabActive]		= ImVec4(0.56f, 0.56f, 0.56f, 0.54f);
-		colors[ImGuiCol_Button]					= ImVec4(0.20f, 0.20f, 0.20f, 0.85f);
-		colors[ImGuiCol_ButtonHovered]			= ImVec4(0.25f, 0.25f, 0.25f, 0.85f);
-		colors[ImGuiCol_ButtonActive]			= ImVec4(0.30f, 0.30f, 0.30f, 1.00f);
-		colors[ImGuiCol_Header]					= ImVec4(0.00f, 0.00f, 0.00f, 0.52f);
-		colors[ImGuiCol_HeaderHovered]			= ImVec4(0.00f, 0.00f, 0.00f, 0.36f);
-		colors[ImGuiCol_HeaderActive]			= ImVec4(0.20f, 0.22f, 0.23f, 0.33f);
-		colors[ImGuiCol_Separator]				= ImVec4(0.28f, 0.28f, 0.28f, 0.29f);
-		colors[ImGuiCol_SeparatorHovered]		= ImVec4(0.44f, 0.44f, 0.44f, 0.29f);
-		colors[ImGuiCol_SeparatorActive]		= ImVec4(0.40f, 0.44f, 0.47f, 1.00f);
-		colors[ImGuiCol_ResizeGrip]				= ImVec4(0.28f, 0.28f, 0.28f, 0.29f);
-		colors[ImGuiCol_ResizeGripHovered]		= ImVec4(0.44f, 0.44f, 0.44f, 0.29f);
-		colors[ImGuiCol_ResizeGripActive]		= ImVec4(0.40f, 0.44f, 0.47f, 1.00f);
-		colors[ImGuiCol_Tab]					= ImVec4(0.00f, 0.00f, 0.00f, 0.52f);
-		colors[ImGuiCol_TabHovered]				= ImVec4(0.14f, 0.14f, 0.14f, 1.00f);
-		colors[ImGuiCol_TabActive]				= ImVec4(0.20f, 0.20f, 0.20f, 0.36f);
-		colors[ImGuiCol_TabUnfocused]			= ImVec4(0.00f, 0.00f, 0.00f, 0.52f);
-		colors[ImGuiCol_TabUnfocusedActive]		= ImVec4(0.14f, 0.14f, 0.14f, 1.00f);
-		colors[ImGuiCol_PlotLines]				= ImVec4(0.60f, 0.60f, 0.60f, 1.00f);
-		colors[ImGuiCol_PlotLinesHovered]		= ImVec4(0.70f, 0.70f, 0.70f, 1.00f);
-		colors[ImGuiCol_PlotHistogram]			= ImVec4(0.60f, 0.60f, 0.60f, 1.00f);
-		colors[ImGuiCol_PlotHistogramHovered]	= ImVec4(0.70f, 0.70f, 0.70f, 1.00f);
-		colors[ImGuiCol_TableHeaderBg]			= ImVec4(0.00f, 0.00f, 0.00f, 0.52f);
-		colors[ImGuiCol_TableBorderStrong]		= ImVec4(0.00f, 0.00f, 0.00f, 0.52f);
-		colors[ImGuiCol_TableBorderLight]		= ImVec4(0.28f, 0.28f, 0.28f, 0.29f);
-		colors[ImGuiCol_TableRowBg]				= ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
-		colors[ImGuiCol_TableRowBgAlt]			= ImVec4(1.00f, 1.00f, 1.00f, 0.06f);
-		colors[ImGuiCol_TextSelectedBg]			= ImVec4(0.20f, 0.22f, 0.23f, 1.00f);
-		colors[ImGuiCol_DragDropTarget]			= ImVec4(0.33f, 0.67f, 0.86f, 1.00f);
-		colors[ImGuiCol_NavHighlight]			= ImVec4(1.00f, 0.00f, 0.00f, 1.00f);
-		colors[ImGuiCol_NavWindowingHighlight]	= ImVec4(1.00f, 0.00f, 0.00f, 0.70f);
-		colors[ImGuiCol_NavWindowingDimBg]		= ImVec4(1.00f, 0.00f, 0.00f, 0.20f);
-		colors[ImGuiCol_ModalWindowDimBg]		= ImVec4(1.00f, 0.00f, 0.00f, 0.35f);
-		//colors[ImGuiCol_DockingPreview]		= ImVec4(0.33f, 0.67f, 0.86f, 1.00f);
-		//colors[ImGuiCol_DockingEmptyBg]		= ImVec4(1.00f, 0.00f, 0.00f, 1.00f);
+		colors[ImGuiCol_Border] = ImVec4(0.18f, 0.18f, 0.18f, 0.28f);
+		colors[ImGuiCol_BorderShadow] = ImVec4(0.00f, 0.00f, 0.00f, 0.23f);
+		colors[ImGuiCol_Button] = ImVec4(0.20f, 0.20f, 0.20f, 0.85f);
+		colors[ImGuiCol_ButtonActive] = ImVec4(0.30f, 0.30f, 0.30f, 1.00f);
+		colors[ImGuiCol_ButtonHovered] = ImVec4(0.25f, 0.25f, 0.25f, 0.85f);
+		colors[ImGuiCol_CheckMark] = ImVec4(0.67f, 0.67f, 0.67f, 1.00f);
+		colors[ImGuiCol_ChildBg] = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
+		colors[ImGuiCol_DragDropTarget] = ImVec4(0.33f, 0.67f, 0.86f, 1.00f);
+		colors[ImGuiCol_FrameBg] = ImVec4(0.00f, 0.00f, 0.00f, 0.54f);
+		colors[ImGuiCol_FrameBgActive] = ImVec4(0.00f, 0.00f, 0.00f, 0.28f);
+		colors[ImGuiCol_FrameBgHovered] = ImVec4(0.00f, 0.00f, 0.00f, 0.28f);
+		colors[ImGuiCol_Header] = ImVec4(0.28f, 0.28f, 0.28f, 0.28f);
+		colors[ImGuiCol_HeaderActive] = colors[ImGuiCol_Header];
+		colors[ImGuiCol_HeaderHovered] = colors[ImGuiCol_Header];
+		colors[ImGuiCol_MenuBarBg] = ImVec4(0.14f, 0.14f, 0.14f, 1.00f);
+		colors[ImGuiCol_ModalWindowDimBg] = ImVec4(1.00f, 0.00f, 0.00f, 0.34f);
+		colors[ImGuiCol_NavHighlight] = ImVec4(1.00f, 1.00f, 1.00f, 0.37f);
+		colors[ImGuiCol_NavWindowingDimBg] = ImVec4(1.00f, 0.00f, 0.00f, 0.20f);
+		colors[ImGuiCol_NavWindowingHighlight] = ImVec4(1.00f, 1.00f, 1.00f, 0.37f);
+		colors[ImGuiCol_PlotHistogram] = ImVec4(0.60f, 0.60f, 0.60f, 1.00f);
+		colors[ImGuiCol_PlotHistogramHovered] = ImVec4(0.68f, 0.68f, 0.68f, 1.00f);
+		colors[ImGuiCol_PlotLines] = ImVec4(0.60f, 0.60f, 0.60f, 1.00f);
+		colors[ImGuiCol_PlotLinesHovered] = ImVec4(0.68f, 0.68f, 0.68f, 1.00f);
+		colors[ImGuiCol_PopupBg] = ImVec4(0.18f, 0.18f, 0.18f, 0.92f);
+		colors[ImGuiCol_ResizeGrip] = ImVec4(0.28f, 0.28f, 0.28f, 0.28f);
+		colors[ImGuiCol_ResizeGripActive] = ImVec4(0.40f, 0.43f, 0.46f, 1.00f);
+		colors[ImGuiCol_ResizeGripHovered] = ImVec4(0.43f, 0.43f, 0.43f, 0.28f);
+		colors[ImGuiCol_ScrollbarBg] = ImVec4(0.05f, 0.05f, 0.05f, 0.54f);
+		colors[ImGuiCol_ScrollbarGrab] = ImVec4(0.34f, 0.34f, 0.34f, 0.54f);
+		colors[ImGuiCol_ScrollbarGrabActive] = ImVec4(0.56f, 0.56f, 0.56f, 0.54f);
+		colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4(0.40f, 0.40f, 0.40f, 0.54f);
+		colors[ImGuiCol_Separator] = ImVec4(0.28f, 0.28f, 0.28f, 0.28f);
+		colors[ImGuiCol_SeparatorActive] = ImVec4(0.40f, 0.43f, 0.46f, 1.00f);
+		colors[ImGuiCol_SeparatorHovered] = ImVec4(0.43f, 0.43f, 0.43f, 0.28f);
+		colors[ImGuiCol_SliderGrab] = ImVec4(0.34f, 0.34f, 0.34f, 0.54f);
+		colors[ImGuiCol_SliderGrabActive] = ImVec4(0.56f, 0.56f, 0.56f, 0.54f);
+		colors[ImGuiCol_Tab] = ImVec4(0.00f, 0.00f, 0.00f, 0.50f);
+		colors[ImGuiCol_TabActive] = ImVec4(0.20f, 0.20f, 0.20f, 0.36f);
+		colors[ImGuiCol_TabHovered] = ImVec4(0.14f, 0.14f, 0.14f, 1.00f);
+		colors[ImGuiCol_TableBorderLight] = ImVec4(0.28f, 0.28f, 0.28f, 0.28f);
+		colors[ImGuiCol_TableBorderStrong] = ImVec4(0.00f, 0.00f, 0.00f, 0.50f);
+		colors[ImGuiCol_TableHeaderBg] = ImVec4(0.00f, 0.00f, 0.00f, 0.50f);
+		colors[ImGuiCol_TableRowBg] = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
+		colors[ImGuiCol_TableRowBgAlt] = ImVec4(1.00f, 1.00f, 1.00f, 0.05f);
+		colors[ImGuiCol_TabUnfocused] = ImVec4(0.00f, 0.00f, 0.00f, 0.50f);
+		colors[ImGuiCol_TabUnfocusedActive] = ImVec4(0.14f, 0.14f, 0.14f, 1.00f);
+		colors[ImGuiCol_Text] = ImVec4(0.93f, 0.93f, 0.93f, 1.00f);
+		colors[ImGuiCol_TextDisabled] = ImVec4(0.50f, 0.50f, 0.50f, 1.00f);
+		colors[ImGuiCol_TextSelectedBg] = ImVec4(0.20f, 0.20f, 0.23f, 1.00f);
+		colors[ImGuiCol_TitleBg] = ImVec4(0.23f, 0.23f, 0.23f, 1.00f);
+		colors[ImGuiCol_TitleBgActive] = ImVec4(0.31f, 0.31f, 0.31f, 1.00f);
+		colors[ImGuiCol_TitleBgCollapsed] = ImVec4(0.16f, 0.16f, 0.16f, 1.00f);
+		colors[ImGuiCol_WindowBg] = ImVec4(0.07f, 0.07f, 0.07f, 1.00f);
 
 		ImPlotStyle& ipStyle = ImPlot::GetStyle();
-		ipStyle.PlotPadding.x = 0;
-		ipStyle.PlotPadding.y = 0;
-		ipStyle.LabelPadding.y = 4;
-		ipStyle.MousePosPadding.x = 4;
-		ipStyle.MousePosPadding.y = 4;
+		ipStyle.PlotPadding.x					= 0;
+		ipStyle.PlotPadding.y					= 0;
+		ipStyle.LabelPadding.y					= 4;
+		ipStyle.MousePosPadding.x				= 4;
+		ipStyle.MousePosPadding.y				= 4;
 
 		ImVec4* ipColors = ImPlot::GetStyle().Colors;
 		ipColors[ImPlotCol_PlotBorder]			= ImVec4(1.00f, 1.00f, 1.00f, 0.05f);
@@ -207,14 +204,20 @@ void Gui_Begin_Draw(float audioTime, float runTime, float delta)
 #if defined(GUI_ENABLED)
 	if (kGuiEnabled)
 	{
+		const float deltaMs = 1000.0f * delta;
+
 		ImGui_ImplSDLRenderer2_NewFrame();
 		ImGui_ImplSDL2_NewFrame();
-
 		ImGui::NewFrame();
 
-		s_frameTimeHistory.AddPoint(runTime, 1000.0f * delta);
+		//ImGui::ShowStyleEditor();
+		//ImGui::ShowDemoWindow();
 
-		if (s_InfoWindowIsOpen)
+		s_frameTimeHistory.addPoint(runTime, deltaMs);
+
+		const ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoCollapse;
+
+		if (s_infoWindowIsOpen)
 		{
 			const float pad = 8.0f;
 			const ImGuiViewport* viewport = ImGui::GetMainViewport();
@@ -230,7 +233,7 @@ void Gui_Begin_Draw(float audioTime, float runTime, float delta)
 			ImGui::SetNextWindowPos(windowPos, ImGuiCond_FirstUseEver, windowPosPivot);
 			ImGui::SetNextWindowSize(ImVec2(kWindowDefaultWidth, 0));
 
-			if (ImGui::Begin("Info"))
+			if (ImGui::Begin("Info", nullptr, windowFlags))
 			{
 				if (ImGui::CollapsingHeader("Frame time plot", ImGuiTreeNodeFlags_DefaultOpen))
 				{
@@ -248,8 +251,8 @@ void Gui_Begin_Draw(float audioTime, float runTime, float delta)
 						ImPlot::SetupAxisFormat(ImAxis_X1, "%.1f s");
 						ImPlot::SetupAxisFormat(ImAxis_Y1, "%.1f ms");
 
-						ImPlot::SetNextLineStyle(ImColor(0.12f, 0.75f, 0.5f, 0.8f), 1.5f);
-						ImPlot::PlotLine("Frame time", &s_frameTimeHistory.Data[0].x, &s_frameTimeHistory.Data[0].y, s_frameTimeHistory.Data.size(), 0, s_frameTimeHistory.Offset, 2 * sizeof(float));
+						ImPlot::SetNextLineStyle(ImColor(0.6f, 0.6f, 0.6f, 0.8f), 1.5f);
+						ImPlot::PlotLine("Frame time", &s_frameTimeHistory.data[0].x, &s_frameTimeHistory.data[0].y, s_frameTimeHistory.data.size(), 0, s_frameTimeHistory.offset, 2 * sizeof(float));
 
 						ImPlot::SetNextLineStyle(ImColor(0.8f, 0.0f, 0.0f, 0.75f), 1.5f);
 						ImPlot::PlotInfLines("60 fps marker", yVal, 1, ImPlotInfLinesFlags_Horizontal);
@@ -261,17 +264,19 @@ void Gui_Begin_Draw(float audioTime, float runTime, float delta)
 				const float smoothingCoeffA = 0.995f;
 				const float smoothingCoeffB = 1.0f - smoothingCoeffA;
 
-				static float s_minDelta = FLT_MAX;
-				static float s_maxDelta = FLT_MIN;
+				static float s_minDeltaMs = FLT_MAX;
+				static float s_maxDeltaMs = FLT_MIN;
 				static float s_minFPS = FLT_MAX;
 				static float s_maxFPS = FLT_MIN;
 				static float s_lastFps = 60.0f;
-				static float s_lastDelta = 1.0f / 60.0f;
+				static float s_lastDeltaMs = 1.0f / 60.0f;
 				static size_t s_framesDropped = 0;
 
 				if (ImGui::CollapsingHeader("Frame stats", ImGuiTreeNodeFlags_DefaultOpen))
 				{
-					const ImVec4 frameRateWarnColor = ImVec4(0.90f, 0.00f, 0.00f, 1.00f);
+					const float fps = 1.0f / delta;
+
+					const ImVec4 frameRateWarnColor = ImVec4(0.90f, 0.20f, 0.20f, 1.00f);
 					const char* frameRateFormat = "%.1f";
 					const char* frameTimeFormat = "%.2f";
 
@@ -279,18 +284,16 @@ void Gui_Begin_Draw(float audioTime, float runTime, float delta)
 
 					if (ImGui::BeginTable("InfoTable1", 4, ImGuiTableFlags_SizingStretchProp))
 					{
-						const float fps = 1.0f / delta;
-
 						if (fps < 60.0)
 							s_framesDropped++;
 
-						s_minDelta = s_minDelta < delta ? s_minDelta : delta;
-						s_maxDelta = s_maxDelta > delta ? s_maxDelta : delta;
+						s_minDeltaMs = s_minDeltaMs < deltaMs ? s_minDeltaMs : deltaMs;
+						s_maxDeltaMs = s_maxDeltaMs > deltaMs ? s_maxDeltaMs : deltaMs;
 						s_minFPS = s_minFPS < fps ? s_minFPS : fps;
 						s_maxFPS = s_maxFPS > fps ? s_maxFPS : fps;
 
 						// Quick and dirty smoothing
-						s_lastDelta = smoothingCoeffA * s_lastDelta + smoothingCoeffB * delta;
+						s_lastDeltaMs = smoothingCoeffA * s_lastDeltaMs + smoothingCoeffB * deltaMs;
 						s_lastFps = smoothingCoeffA * s_lastFps + smoothingCoeffB * fps;
 
 						ImGui::TableNextRow();
@@ -329,16 +332,16 @@ void Gui_Begin_Draw(float audioTime, float runTime, float delta)
 						ImGui::TableNextColumn();
 						ImGui::TextColored(kGreyTextColor, "Frame time (ms)");
 						ImGui::TableNextColumn();
-						ImGui::Text(frameTimeFormat, 1000.0f * s_lastDelta);
+						ImGui::Text(frameTimeFormat, s_lastDeltaMs);
 						ImGui::TableNextColumn();
-						ImGui::Text(frameTimeFormat, 1000.0f * s_minDelta);
+						ImGui::Text(frameTimeFormat, s_minDeltaMs);
 
 
 						ImGui::TableNextColumn();
 						if (s_framesDropped > 0)
-							ImGui::TextColored(frameRateWarnColor, frameTimeFormat, 1000.0f * s_maxDelta);
+							ImGui::TextColored(frameRateWarnColor, frameTimeFormat, s_maxDeltaMs);
 						else
-							ImGui::Text(frameTimeFormat, 1000.0f * s_maxDelta);
+							ImGui::Text(frameTimeFormat, s_maxDeltaMs);
 
 						ImGui::EndTable();
 					}
@@ -361,12 +364,12 @@ void Gui_Begin_Draw(float audioTime, float runTime, float delta)
 						ImGui::TableNextColumn();
 						if (ImGui::Button("Reset"))
 						{
-							s_minDelta = FLT_MAX;
-							s_maxDelta = FLT_MIN;
+							s_minDeltaMs = FLT_MAX;
+							s_maxDeltaMs = FLT_MIN;
 							s_minFPS = FLT_MAX;
 							s_maxFPS = FLT_MIN;
-							s_lastFps = 60.0f;
-							s_lastDelta = 1.0f / 60.0f;
+							s_lastFps = fps;
+							s_lastDeltaMs = deltaMs;
 							s_framesDropped = 0;
 						}
 						ImGui::EndTable();
@@ -381,7 +384,7 @@ void Gui_Begin_Draw(float audioTime, float runTime, float delta)
 		{
 			ImGui::SetNextWindowPos(ImVec2(4, 4), ImGuiCond_FirstUseEver);
 			ImGui::SetNextWindowSize(ImVec2(kWindowDefaultWidth, 0));
-			ImGui::Begin("GUI");
+			ImGui::Begin("GUI", nullptr, windowFlags);
 		}
 	}
 #endif // GUI_ENABLED
@@ -401,7 +404,7 @@ void Gui_End_Draw()
 			s_guiIsVisible = !s_guiIsVisible;
 
 		if (ImGui::IsKeyReleased(ImGui::GetKeyIndex(kGuiKeys_ShowInfo)))
-			s_InfoWindowIsOpen = !s_InfoWindowIsOpen;
+			s_infoWindowIsOpen = !s_infoWindowIsOpen;
 
 		//if (ImGui::IsKeyReleased(ImGui::GetKeyIndex(kGuiKeys_CollapseAll)))
 		//{
