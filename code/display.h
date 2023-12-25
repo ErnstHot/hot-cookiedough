@@ -18,9 +18,11 @@ public:
 	void Update(const uint32_t *pPixels);
 
 private:
-	SDL_Window   *m_window;
-	SDL_Renderer *m_renderer;
-	SDL_Texture  *m_texture;
+	SDL_Window   *m_demoWindow;
+	SDL_Window   *m_guiWindow;
+	SDL_Renderer *m_guiRenderer;
+	SDL_Renderer *m_demoRenderer;
+	SDL_Texture  *m_demoTexture;
 
 	unsigned m_pitch;
 };

@@ -11,7 +11,7 @@ bool Gui_Create(SDL_Window*, SDL_Renderer*);
 void Gui_Destroy();
 void Gui_Update();
 void Gui_Process_Event(const SDL_Event*);
-void Gui_Begin_Draw(float audioTime, float runTime, float delta);
+void Gui_Begin_Draw(float audioTime, float runTime, float delta, size_t currentFrame);
 void Gui_End_Draw();
 
 

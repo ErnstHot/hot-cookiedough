@@ -106,7 +106,7 @@
 
 // -- debug, display & audio config. --
 
-const char *kTitle = "Bypass ft. TPB present 'ARRESTED DEVELOPMENT'";
+const char *kTitle = "Thorsten plays with dough";
 
 static const char *kStream = "assets/audio/comatron - to the moon - final.wav";
 constexpr bool kSilent = true; // when you're working on anything else than synchronization
@@ -291,7 +291,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR cmdLine, int nCmdShow)
 						const float delta = newTime-oldTime; // base delta on sys. time
 						const float audioTime = kSilent ? newTime : Audio_Get_Pos_In_Sec();
 												
-						Gui_Begin_Draw(audioTime, newTime, delta);
+						Gui_Begin_Draw(audioTime, newTime, delta, numFrames);
 
 						Demo_Draw(pDest, audioTime, delta * 100.f);
 						//if (false == Demo_Draw(pDest, audioTime, delta * 100.f))
@@ -309,7 +309,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR cmdLine, int nCmdShow)
 
 					freeAligned(pDest);
 				}
-
 			}
 		}
 	}

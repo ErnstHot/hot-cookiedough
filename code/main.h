@@ -44,8 +44,8 @@ constexpr bool kFullScreen = false;
 
 // GUI
 #define GUI_ENABLED // comment out to remove gui from project
-constexpr bool kGui_VisibleByDefault = false;
-constexpr bool kGui_InfoWindowDefaultOpen = false;
+constexpr bool kGui_VisibleByDefault = true;
+constexpr bool kGui_InfoWindowDefaultOpen = true;
 
 #if defined(GUI_ENABLED)
 	#include "../3rdparty/imgui-1.90/imgui.h"
