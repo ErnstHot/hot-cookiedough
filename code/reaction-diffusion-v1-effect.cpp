@@ -17,7 +17,11 @@
 
 using namespace ErnstHot;
 
-constexpr bool kHalfRes = true;
+constexpr size_t	kFullBufferWidth = 512;
+constexpr bool		kHalfRes = false;
+
+constexpr size_t	kBufferWidth = kHalfRes ? kFullBufferWidth / 2 : kFullBufferWidth;
+
 
 static REDI_V1_Kernel*		s_pKernel		= nullptr;
 static REDI_V1_Parameters*	s_pParameters	= nullptr;
@@ -117,55 +121,6 @@ static void clearBuffers()
 
 // Public functions //////////////////////////////////////////////////////////
 
-void Reaction_Diffusion_V1_Effect_Draw(uint32_t* pDest, float time, float delta)
-{
-	clearBuffers();
-	showGui();
-
-	const float shape = s_shape * 0.5f + 0.5f;
-	const float gain = expf(s_gain * 4.0f);
-
-	if (s_updateBuffers)
-		REDI_V1_Buffers_Update(s_pBuffers, s_pKernel, s_pParameters, true);
-
-	if (s_centerPixelValue > 0.0f)
-		s_pBuffers->pBufferB[s_pBuffers->BufferSize / 2 + s_pBuffers->BufferResX / 2] = s_centerPixelValue;
-
-	const size_t sourceResX = s_pBuffers->BufferResX;
-	const size_t sourceResY = s_pBuffers->BufferResY;
-	const size_t destinationResX = kHalfRes ? kHalfResX : kResX;
-	const size_t destinationResY = kHalfRes ? kHalfResY : kResY;
-
-	for (size_t yIdx = 0; yIdx < destinationResY; ++yIdx)
-	{
-		for (size_t xIdx = 0; xIdx < destinationResX; ++xIdx)
-		{
-			const size_t srcXidx = xIdx - (destinationResX / 2 - sourceResX / 2);
-			const size_t srcYidx = yIdx - (destinationResY / 2 - sourceResY / 2);
-
-			uint32_t color = 0xff080808;
-
-			if (!(srcXidx >= sourceResX || srcYidx >= sourceResY || srcXidx < 0 || srcYidx < 0))
-			{
-				float vf = 1.0f - s_pBuffers->pBufferA[XYToIdx(srcXidx, srcYidx, sourceResX)];
-				vf = gain * VarShape(vf, shape);
-
-				//float vf = lutsinf(kPI +  4.0f * s_pBuffers->pBufferA[XYToIdx(srcXidx, srcYidx, sourceResX)]) * 0.5f + 0.5f;
-				color = FloatToColorGreyscale32(vf);
-				//color = FloatToColorSpectrum32(3+vf * 6, 0.6f);
-			}
-
-			if (kHalfRes)
-				g_pFxMap[0][XYToIdx(xIdx, yIdx, destinationResX)] = color;
-			else
-				pDest[XYToIdx(xIdx, yIdx, destinationResX)] = color;
-		}
-	}
-
-	if (kHalfRes)
-		Fx_Blit_2x2(pDest, g_pFxMap[0]);
-}
-
 bool Reaction_Diffusion_V1_Effect_Create()
 {
 	s_pKernel = static_cast<REDI_V1_Kernel*>(mallocAligned(sizeof(REDI_V1_Kernel), kAlignTo));
@@ -175,9 +130,7 @@ bool Reaction_Diffusion_V1_Effect_Create()
 	s_pKernel = new REDI_V1_Kernel();
 	s_pParameters = new REDI_V1_Parameters();
 
-	const size_t bufferWidth = kHalfRes ? 256 : 512;
-
-	s_pBuffers = new REDI_V1_Buffers(bufferWidth, bufferWidth);
+	s_pBuffers = new REDI_V1_Buffers(kBufferWidth, kBufferWidth);
 
 	if (nullptr == s_pKernel
 		|| nullptr == s_pParameters
@@ -232,4 +185,53 @@ void Reaction_Diffusion_V1_Effect_Destroy()
 	delete s_pKernel;
 	delete s_pParameters;
 	delete s_pBuffers;
+}
+
+void Reaction_Diffusion_V1_Effect_Draw(uint32_t* pDest, float time, float delta)
+{
+	clearBuffers();
+	showGui();
+
+	const float shape = s_shape * 0.5f + 0.5f;
+	const float gain = expf(s_gain * 4.0f);
+
+	if (s_updateBuffers)
+		REDI_V1_Buffers_Update(s_pBuffers, s_pKernel, s_pParameters, true);
+
+	if (s_centerPixelValue > 0.0f)
+		s_pBuffers->pBufferB[s_pBuffers->BufferSize / 2 + s_pBuffers->BufferResX / 2] = s_centerPixelValue;
+
+	const size_t sourceResX = s_pBuffers->BufferResX;
+	const size_t sourceResY = s_pBuffers->BufferResY;
+	const size_t destinationResX = kHalfRes ? kHalfResX : kResX;
+	const size_t destinationResY = kHalfRes ? kHalfResY : kResY;
+
+	for (size_t yIdx = 0; yIdx < destinationResY; ++yIdx)
+	{
+		for (size_t xIdx = 0; xIdx < destinationResX; ++xIdx)
+		{
+			const size_t srcXidx = xIdx - (destinationResX / 2 - sourceResX / 2);
+			const size_t srcYidx = yIdx - (destinationResY / 2 - sourceResY / 2);
+
+			uint32_t color = 0xff080808;
+
+			if (!(srcXidx >= sourceResX || srcYidx >= sourceResY || srcXidx < 0 || srcYidx < 0))
+			{
+				float vf = 1.0f - s_pBuffers->pBufferA[XYToIdx(srcXidx, srcYidx, sourceResX)];
+				vf = gain * VarShape(vf, shape);
+
+				//float vf = lutsinf(kPI +  4.0f * s_pBuffers->pBufferA[XYToIdx(srcXidx, srcYidx, sourceResX)]) * 0.5f + 0.5f;
+				color = FloatToColorGreyscale32(vf);
+				//color = FloatToColorSpectrum32(3+vf * 6, 0.6f);
+			}
+
+			if (kHalfRes)
+				g_pFxMap[0][XYToIdx(xIdx, yIdx, destinationResX)] = color;
+			else
+				pDest[XYToIdx(xIdx, yIdx, destinationResX)] = color;
+		}
+	}
+
+	if (kHalfRes)
+		Fx_Blit_2x2(pDest, g_pFxMap[0]);
 }

@@ -45,19 +45,19 @@ bool Display::Open(const std::string &title, unsigned int xRes, unsigned int yRe
 	SDL_DisplayMode displayMode;
 	SDL_GetDesktopDisplayMode(displayIndex, &displayMode);
 	
-	const int guiHeight = displayMode.h - 64; // TODO: Find max useable height
-
+	const int guiHeight = displayMode.h - 128; // TODO: Find max useable height
 	const int guiResult = SDL_CreateWindowAndRenderer(kGui_WindowMinWidth, guiHeight, SDL_RENDERER_ACCELERATED, &m_guiWindow, &m_guiRenderer);
 
 	if (-1 != guiResult)
 	{
+		SDL_SetWindowTitle(m_guiWindow, kGuiTitle);
+		SDL_SetWindowPosition(m_guiWindow, 0, 32);
 		SDL_RenderPresent(m_guiRenderer);  // Needed for SDL_GetWindowBordersSize to report accurate results?
 
 		int top, left, bottom, right;
 		SDL_GetWindowBordersSize(m_guiWindow, &top, &left, &bottom, &right);
 		SDL_SetWindowResizable(m_guiWindow, SDL_TRUE);
 		SDL_SetWindowPosition(m_guiWindow, 0, top);
-		SDL_SetWindowTitle(m_guiWindow, kGuiTitle);
 		SDL_SetWindowMinimumSize(m_guiWindow, kGui_WindowMinWidth, 64);
 
 		if (!Gui_Create(m_guiWindow, m_guiRenderer))
