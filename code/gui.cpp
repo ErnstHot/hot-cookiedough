@@ -257,13 +257,15 @@ bool Gui_Create(SDL_Window* window, SDL_Renderer* renderer)
 		ImGui::CreateContext();
 		ImPlot::CreateContext();
 
-		ImGuiIO& io = ImGui::GetIO();
-		
-		// Keyboard navigation disabled because you easily end up in a situation where
-		// pressing Escape seems reasonable ...and then you exit the demo :(
-		// TODO: Flag to switch the key to exit the demo to something else, for development?
-		//io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+		ImGuiDockNodeFlags dockspaceFlags = ImGuiDockNodeFlags_None;
+		dockspaceFlags &= ~ImGuiDockNodeFlags_PassthruCentralNode;
 
+
+		ImGuiIO& io = ImGui::GetIO(); (void)io;
+
+		io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+		io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+		
 		io.ConfigWindowsMoveFromTitleBarOnly = true;
 		io.Fonts->AddFontFromFileTTF("dev-assets/Roboto-Medium.ttf", 14.0f);
 
@@ -400,19 +402,19 @@ void Gui_Begin_Draw(float audioTime, float runTime, float frameTimeInSeconds, si
 		ImGui::NewFrame();
 
 		//ImGui::ShowStyleEditor();
-		//ImGui::ShowDemoWindow();
+		ImGui::ShowDemoWindow();
 
 		s_frameTimeHistory.addPoint(runTime, frameTimeMs);
 
 		if (Gui_Is_Visible())
 		{
-			ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_Always);
-			ImGui::SetNextWindowSize(ImGui::GetIO().DisplaySize, ImGuiCond_Always);
+			ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_FirstUseEver);
+			ImGui::SetNextWindowSize(ImVec2(300, ImGui::GetIO().DisplaySize.y), ImGuiCond_FirstUseEver);
 
 			ImGui::Begin("GUI", nullptr, 0
 				| ImGuiWindowFlags_AlwaysVerticalScrollbar // TODO: Find out why ImGui doesn't auto shows scroll bar
-				| ImGuiWindowFlags_NoMove
-				| ImGuiWindowFlags_NoDecoration
+				//| ImGuiWindowFlags_NoMove
+				//| ImGuiWindowFlags_NoDecoration
 				| ImGuiWindowFlags_MenuBar
 			);
 
