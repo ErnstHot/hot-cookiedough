@@ -42,6 +42,8 @@ constexpr float kAspect = (float)kResY/kResX;
 constexpr float kOneOverAspect = 1.f/kAspect;
 constexpr bool kFullScreen = false;
 
+constexpr bool kQuitOnEscapeKeyPressed = false;
+
 // GUI
 #define GUI_ENABLED // comment out to remove gui from project
 constexpr bool kGui_VisibleByDefault = true;

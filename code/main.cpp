@@ -157,23 +157,26 @@ static bool HandleEvents()
 	SDL_Event event;
 	while (SDL_PollEvent(&event))
 	{
+		Gui_Process_Event(&event);
+
 		switch (event.type)
 		{
 		case SDL_QUIT:
 			return false;
 
+		case SDL_WINDOWEVENT_CLOSE:
+			return false;
+
 		case SDL_KEYDOWN:
 		{
 			const SDL_Keycode key = event.key.keysym.sym;
-			if (key == SDLK_ESCAPE)
+			if (kQuitOnEscapeKeyPressed && key == SDLK_ESCAPE)
 				return false; 
 		}
 
 		default:
 			break;
 		}
-
-		Gui_Process_Event(&event);
 	}
 
 	return true;
