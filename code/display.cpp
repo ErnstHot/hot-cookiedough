@@ -4,9 +4,6 @@
 #include "main.h"
 #include "display.h"
 
-const char* kGuiTitle = "Cookiedough";
-constexpr int kGui_WindowMinWidth = 300;
-
 Display::Display() :
 	m_window(nullptr),
 	m_renderer(nullptr),
@@ -28,26 +25,24 @@ Display::~Display()
 
 bool Display::Open(const std::string &title, unsigned int xRes, unsigned int yRes, bool fullScreen)
 {
-	bool displayInit = true;
+	bool initOK = true;
 
-	// Demo window
-	const int demoResult = (false == fullScreen)
+	const int result = (false == fullScreen)
 		? SDL_CreateWindowAndRenderer(xRes, yRes, SDL_RENDERER_ACCELERATED, &m_window, &m_renderer)
 		: SDL_CreateWindowAndRenderer(0, 0, int(SDL_WINDOW_FULLSCREEN_DESKTOP) | int(SDL_RENDERER_ACCELERATED), &m_window, &m_renderer);
 
-	if (-1 != demoResult)
+	if (-1 != result)
 	{
 		// set output resolution (regardless of what we're blitting to)
 		SDL_RenderSetLogicalSize(m_renderer, xRes, yRes);
 
-		// set title
 		SDL_SetWindowTitle(m_window, title.c_str());
 
 		m_texture = SDL_CreateTexture(m_renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, xRes, yRes);
-		m_pitch = xRes*4;
+		m_pitch = xRes * 4;
 
-		displayInit &= (nullptr != m_texture);
-		displayInit &= Gui_Create(m_window, m_renderer);
+		initOK &= (nullptr != m_texture);
+		initOK &= Gui_Create(m_window, m_renderer);
 	}
 	else
 	{
@@ -57,7 +52,7 @@ bool Display::Open(const std::string &title, unsigned int xRes, unsigned int yRe
 		return false;
 	}
 
-	return displayInit;
+	return initOK;
 }
 
 void Display::Update(const uint32_t *pPixels)
