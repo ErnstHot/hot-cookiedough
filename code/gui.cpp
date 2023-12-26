@@ -10,7 +10,6 @@
 	constexpr ImGuiKey	kGui_Keys_ToggleShowInfo	= ImGuiKey_F3;
 
 	static bool s_guiIsVisible = kGui_VisibleByDefault;
-	static bool s_infoWindowIsOpen = kGui_InfoWindowDefaultOpen;
 #endif
 
 bool Gui_Is_Visible()
@@ -23,9 +22,9 @@ bool Gui_Is_Visible()
 }
 
 #if defined (GUI_ENABLED)
-	#include "../3rdparty/imgui-1.90/imgui_internal.h"
-	#include "../3rdparty/imgui-1.90/imgui_impl_sdl2.h"
-	#include "../3rdparty/imgui-1.90/imgui_impl_sdlrenderer2.h"
+	#include "../3rdparty/imgui-1.90-docking/imgui_internal.h"
+	#include "../3rdparty/imgui-1.90-docking/imgui_impl_sdl2.h"
+	#include "../3rdparty/imgui-1.90-docking/imgui_impl_sdlrenderer2.h"
 
 	// Utility structure for realtime plot
 	struct GUI_ScrollingBuffer
@@ -436,13 +435,6 @@ void Gui_End_Draw()
 
 		if (ImGui::IsKeyReleased(ImGui::GetKeyIndex(kGui_Keys_ToggleShowGui)))
 			s_guiIsVisible = !s_guiIsVisible;
-
-		if (ImGui::IsKeyReleased(ImGui::GetKeyIndex(kGui_Keys_ToggleShowInfo)))
-			s_infoWindowIsOpen = !s_infoWindowIsOpen;
-
-		//if (ImGui::IsKeyReleased(ImGui::GetKeyIndex(kGuiKeys_CollapseAll)))
-		//{
-		//}
 	}
 #endif // GUI_ENABLED
 }

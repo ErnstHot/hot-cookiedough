@@ -32,7 +32,7 @@
 #pragma once
 
 #include <time.h>
-#include "../imgui-1.90/imgui_internal.h"
+#include "../imgui-1.90-docking/imgui_internal.h"
 
 #ifndef IMPLOT_VERSION
 #error Must include implot.h before implot_internal.h

@@ -45,12 +45,13 @@ constexpr bool kFullScreen = false;
 // GUI
 #define GUI_ENABLED // comment out to remove gui from project
 constexpr bool kGui_VisibleByDefault = true;
-constexpr bool kGui_InfoWindowDefaultOpen = true;
 
 #if defined(GUI_ENABLED)
-	#include "../3rdparty/imgui-1.90/imgui.h"
+	#include "../3rdparty/imgui-1.90-docking/imgui.h"
 	#include "../3rdparty/implot-0.16/implot.h"
-	constexpr bool kGuiEnabled = !kFullScreen; // disables GUI in fullscreen mode
+
+	// we should probably disable GUI in fullscreen mode, for now
+	constexpr bool kGuiEnabled = !kFullScreen;
 #else
 	constexpr bool kGuiEnabled = false;
 #endif // GUI_ENABLED
