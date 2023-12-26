@@ -274,3 +274,4 @@ paket-files/
 .idea/
 *.sln.iml
 
+target/imgui.ini
